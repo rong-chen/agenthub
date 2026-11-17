@@ -190,7 +190,13 @@ class _ChatViewState extends State<ChatView> {
                   decoration: InputDecoration(
                     hintText: '输入内容...',
                     hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),
+                    filled: false,
+                    fillColor: Colors.transparent,
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),

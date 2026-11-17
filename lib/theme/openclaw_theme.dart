@@ -42,7 +42,6 @@ class OpenClawTheme {
     final txtTertiary = dark ? const Color(0xFF6E6E6E) : const Color(0xFF9E9A93);
     final bdr = dark ? const Color(0xFF333333) : const Color(0xFFE8E5DD);
     final div = dark ? const Color(0xFF282828) : const Color(0xFFEFECE6);
-    final inputBg = dark ? const Color(0xFF2A2A2A) : Colors.white;
 
     final colorScheme = dark
         ? const ColorScheme.dark(
@@ -70,22 +69,8 @@ class OpenClawTheme {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
-      // 输入框装饰主题
+      // 输入框提示词主题
       inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: inputBg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: bdr),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: bdr),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: primaryRed),
-        ),
         hintStyle: TextStyle(color: txtTertiary, fontSize: 13),
       ),
       // 卡片主题
