@@ -329,7 +329,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                   label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     color: isSelected ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -412,7 +412,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: isActive ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary,
-                                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,

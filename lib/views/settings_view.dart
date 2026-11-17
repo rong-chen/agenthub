@@ -207,12 +207,12 @@ class _SettingsViewState extends State<SettingsView> {
 
   Widget _buildField(String label, TextEditingController controller, String hint, {bool isPassword = false}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary)),
+      Text(label, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary, fontWeight: FontWeight.w500)),
       const SizedBox(height: 6),
       TextField(
         controller: controller,
         obscureText: isPassword,
-        style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
+        style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),

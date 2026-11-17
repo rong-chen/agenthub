@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 /// 全局配色与视觉主题规范（暖纸明亮 / VS Code 暗黑双主题）
@@ -23,10 +24,10 @@ class OpenClawTheme {
   static const Color statusOrange = Color(0xFFF59E0B);
   static const Color statusGray = Color(0xFF9CA3AF);
 
-  // 文本色阶
-  static Color get textPrimary => isDark ? const Color(0xFFCCCCCC) : const Color(0xFF22201D);
-  static Color get textSecondary => isDark ? const Color(0xFF969696) : const Color(0xFF6B6762);
-  static Color get textTertiary => isDark ? const Color(0xFF6E6E6E) : const Color(0xFF9E9A93);
+  // 文本色阶（提高清晰度与对比度，防止字体过虚）
+  static Color get textPrimary => isDark ? const Color(0xFFF3F3F3) : const Color(0xFF1C1A18);
+  static Color get textSecondary => isDark ? const Color(0xFFA6A6A6) : const Color(0xFF4A4744);
+  static Color get textTertiary => isDark ? const Color(0xFF808080) : const Color(0xFF787570);
 
   // 边框与分割线
   static Color get border => isDark ? const Color(0xFF333333) : const Color(0xFFE8E5DD);
@@ -38,8 +39,9 @@ class OpenClawTheme {
   static ThemeData buildTheme(bool dark) {
     final bg = dark ? const Color(0xFF181818) : const Color(0xFFF9F8F5);
     final cardBg = dark ? const Color(0xFF252526) : Colors.white;
-    final txtPrimary = dark ? const Color(0xFFCCCCCC) : const Color(0xFF22201D);
-    final txtTertiary = dark ? const Color(0xFF6E6E6E) : const Color(0xFF9E9A93);
+    final txtPrimary = dark ? const Color(0xFFF3F3F3) : const Color(0xFF1C1A18);
+    final txtSecondary = dark ? const Color(0xFFA6A6A6) : const Color(0xFF4A4744);
+    final txtTertiary = dark ? const Color(0xFF808080) : const Color(0xFF787570);
     final bdr = dark ? const Color(0xFF333333) : const Color(0xFFE8E5DD);
     final div = dark ? const Color(0xFF282828) : const Color(0xFFEFECE6);
 
@@ -47,12 +49,12 @@ class OpenClawTheme {
         ? const ColorScheme.dark(
             primary: primaryRed,
             surface: Color(0xFF252526),
-            onSurface: Color(0xFFCCCCCC),
+            onSurface: Color(0xFFF3F3F3),
           )
         : const ColorScheme.light(
             primary: primaryRed,
             surface: Colors.white,
-            onSurface: Color(0xFF22201D),
+            onSurface: Color(0xFF1C1A18),
           );
 
     return ThemeData(
@@ -61,7 +63,22 @@ class OpenClawTheme {
       primaryColor: primaryRed,
       colorScheme: colorScheme,
       dividerColor: div,
-      fontFamily: 'PingFang SC',
+      fontFamily: Platform.isWindows ? 'Microsoft YaHei UI' : 'PingFang SC',
+      fontFamilyFallback: const [
+        'Microsoft YaHei',
+        'PingFang SC',
+        'Segoe UI',
+        'Hiragino Sans GB',
+        'sans-serif',
+      ],
+      // 全局文本字重优化，加粗防虚化
+      textTheme: TextTheme(
+        bodyLarge: TextStyle(color: txtPrimary, fontWeight: FontWeight.w500, fontSize: 14),
+        bodyMedium: TextStyle(color: txtPrimary, fontWeight: FontWeight.w500, fontSize: 13),
+        bodySmall: TextStyle(color: txtSecondary, fontWeight: FontWeight.w500, fontSize: 12),
+        titleMedium: TextStyle(color: txtPrimary, fontWeight: FontWeight.w600, fontSize: 15),
+        titleLarge: TextStyle(color: txtPrimary, fontWeight: FontWeight.bold, fontSize: 18),
+      ),
       // 顶栏主题：与背景一致
       appBarTheme: AppBarTheme(
         backgroundColor: bg,

@@ -119,12 +119,12 @@ class _ChatViewState extends State<ChatView> {
                       border: Border.all(color: OpenClawTheme.border),
                     ),
                     child: isUser
-                        ? Text(message.content, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.5))
+                        ? Text(message.content, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.5, fontWeight: FontWeight.w500))
                         : MarkdownBody(
                             data: message.content,
                             styleSheet: MarkdownStyleSheet(
-                              p: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.6),
-                              code: TextStyle(backgroundColor: OpenClawTheme.pillBackground, color: OpenClawTheme.titleRed, fontSize: 12),
+                              p: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.6, fontWeight: FontWeight.w500),
+                              code: TextStyle(backgroundColor: OpenClawTheme.pillBackground, color: OpenClawTheme.titleRed, fontSize: 12, fontWeight: FontWeight.w600),
                               codeblockDecoration: BoxDecoration(
                                 color: OpenClawTheme.pillBackground,
                                 borderRadius: BorderRadius.circular(8),
@@ -186,7 +186,7 @@ class _ChatViewState extends State<ChatView> {
                   enabled: !provider.isBusy,
                   maxLines: 4,
                   minLines: 1,
-                  style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14),
+                  style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: '输入内容...',
                     hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),
