@@ -18,6 +18,8 @@ class _ChatViewState extends State<ChatView> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
+  int _lastMessageCount = 0;
+  String? _lastSessionId;
 
   @override
   void dispose() {
@@ -42,17 +44,20 @@ class _ChatViewState extends State<ChatView> {
     _scrollToBottom();
   }
 
-  /// 滚动到最新消息位置
+  /// 平滑动画滚动到最新消息位置
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
         return;
       }
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
+      final target = _scrollController.position.maxScrollExtent;
+      if ((_scrollController.offset - target).abs() > 1.0) {
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
     });
   }
 
@@ -61,6 +66,18 @@ class _ChatViewState extends State<ChatView> {
     final provider = context.watch<AppStateProvider>();
     OpenClawTheme.isDark = provider.isDarkTheme;
     final messages = provider.messages;
+
+    // 会话切换或新消息到达时平滑滚动到底部
+    if (provider.activeSessionId != _lastSessionId) {
+      _lastSessionId = provider.activeSessionId;
+      _lastMessageCount = messages.length;
+      _scrollToBottom();
+    } else if (messages.length > _lastMessageCount) {
+      _lastMessageCount = messages.length;
+      _scrollToBottom();
+    } else if (messages.length < _lastMessageCount) {
+      _lastMessageCount = messages.length;
+    }
 
     return Container(
       color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
