@@ -57,11 +57,6 @@ class SkillService {
     }
     paths.add(globalSkillsPath);
 
-    final localSkillsDir = Directory('${Directory.current.path}/skills');
-    if (localSkillsDir.existsSync()) {
-      paths.add(localSkillsDir.path);
-    }
-
     return paths;
   }
 
