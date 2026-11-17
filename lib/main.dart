@@ -14,25 +14,13 @@ void main() async {
   // 桌面端初始化 SQLite FFI
   sqfliteFfiInit();
 
-  // 桌面端窗口配置：先设置尺寸再显示，避免闪烁
+  // 桌面端窗口配置
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
     try {
       await windowManager.ensureInitialized();
-
-      const WindowOptions windowOptions = WindowOptions(
-        size: Size(1280, 800),
-        minimumSize: Size(900, 600),
-        center: true,
-        skipTaskbar: false,
-        backgroundColor: Colors.transparent,
-      );
-
-      // 等待窗口就绪后再显示，避免从小窗口动画放大
-      windowManager.waitUntilReadyToShow(windowOptions, () async {
-        await windowManager.setPreventClose(true);
-        await windowManager.show();
-        await windowManager.focus();
-      });
+      await windowManager.setPreventClose(true);
+      await windowManager.show();
+      await windowManager.focus();
 
       // 初始化系统托盘
       await TrayService.instance.initTray();
