@@ -44,9 +44,11 @@ class _HomeViewState extends State<HomeView> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
+    // 强制同步当前主题模式，防止静态变量未即时更新
+    OpenClawTheme.isDark = provider.isDarkTheme;
 
     return Scaffold(
-      backgroundColor: OpenClawTheme.background,
+      backgroundColor: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       body: Row(
         children: [
           if (!_isSidebarCollapsed) ...[
@@ -161,7 +163,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: OpenClawTheme.headerBackground,
+      color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: Row(
         children: [
           InkWell(
@@ -241,7 +243,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
   Widget _buildSidebar(BuildContext context, AppStateProvider provider) {
     return Container(
       width: 220,
-      color: OpenClawTheme.sidebarBackground,
+      color: provider.isDarkTheme ? const Color(0xFF1E1E1E) : const Color(0xFFF2F0EB),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

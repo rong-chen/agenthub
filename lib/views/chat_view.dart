@@ -59,10 +59,11 @@ class _ChatViewState extends State<ChatView> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
+    OpenClawTheme.isDark = provider.isDarkTheme;
     final messages = provider.messages;
 
     return Container(
-      color: OpenClawTheme.background,
+      color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: Column(
         children: [
           // 移除了 _buildHeaderRow，直接显示消息区域

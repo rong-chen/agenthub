@@ -283,7 +283,7 @@ void Win32Window::OnDestroy() {
 }
 
 void Win32Window::UpdateTheme(HWND const window) {
-  DWORD light_mode;
+  DWORD light_mode = 1;
   DWORD light_mode_size = sizeof(light_mode);
   LSTATUS result = RegGetValue(HKEY_CURRENT_USER, kGetPreferredBrightnessRegKey,
                                kGetPreferredBrightnessRegValue,
@@ -294,5 +294,16 @@ void Win32Window::UpdateTheme(HWND const window) {
     BOOL enable_dark_mode = light_mode == 0;
     DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
                           &enable_dark_mode, sizeof(enable_dark_mode));
+    DwmSetWindowAttribute(window, 19,
+                          &enable_dark_mode, sizeof(enable_dark_mode));
+
+    // Customize title bar color for Windows 11
+    COLORREF caption_color = enable_dark_mode ? RGB(0x18, 0x18, 0x18) : RGB(0xF9, 0xF8, 0xF5);
+    COLORREF text_color = enable_dark_mode ? RGB(0xF3, 0xF3, 0xF3) : RGB(0x1C, 0x1A, 0x18);
+    DwmSetWindowAttribute(window, 35, &caption_color, sizeof(caption_color));
+    DwmSetWindowAttribute(window, 36, &text_color, sizeof(text_color));
+
+    SetWindowPos(window, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
   }
 }

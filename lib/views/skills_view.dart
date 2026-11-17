@@ -139,6 +139,7 @@ class _SkillsViewState extends State<SkillsView> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
+    OpenClawTheme.isDark = provider.isDarkTheme;
     final allSkills = provider.skills;
     final query = _searchController.text.trim().toLowerCase();
     final filtered = allSkills.where((s) {
@@ -147,7 +148,7 @@ class _SkillsViewState extends State<SkillsView> {
     }).toList();
 
     return Container(
-      color: OpenClawTheme.background,
+      color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
         child: Column(

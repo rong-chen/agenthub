@@ -183,6 +183,7 @@ class _TasksViewState extends State<TasksView> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
+    OpenClawTheme.isDark = provider.isDarkTheme;
     final allTasks = provider.tasks;
     final query = _searchController.text.trim().toLowerCase();
     final filteredTasks = allTasks.where((t) {
@@ -193,7 +194,7 @@ class _TasksViewState extends State<TasksView> {
     }).toList();
 
     return Container(
-      color: OpenClawTheme.background,
+      color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
         child: Column(

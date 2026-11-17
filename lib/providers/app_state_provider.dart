@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 import '../models/gateway_config.dart';
 import '../models/chat_message_model.dart';
 import '../models/chat_session_model.dart';
@@ -74,10 +76,26 @@ class AppStateProvider extends ChangeNotifier {
     return session?.messages ?? [];
   }
 
+  static const MethodChannel _windowThemeChannel = MethodChannel('agenthub/window_theme');
+
+  /// 同步原生窗口标题栏主题
+  Future<void> _syncWindowTheme(bool isDark) async {
+    try {
+      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+        await windowManager.setBrightness(isDark ? Brightness.dark : Brightness.light);
+      }
+      if (Platform.isWindows) {
+        await _windowThemeChannel.invokeMethod('setDarkTheme', {'isDark': isDark});
+      }
+    } catch (_) {}
+  }
+
   /// 初始化加载所有配置、技能、定时任务、会话，并按配置启动内置网关
   Future<void> initialize() async {
     _config = await _dbService.loadConfig();
-    OpenClawTheme.isDark = _config.themeMode == 'dark';
+    final isDark = _config.themeMode == 'dark';
+    OpenClawTheme.isDark = isDark;
+    await _syncWindowTheme(isDark);
 
     _sessions = await _dbService.loadSessions();
     _tasks = await _dbService.loadTasks();
@@ -109,7 +127,9 @@ class AppStateProvider extends ChangeNotifier {
   /// 切换明暗主题
   Future<void> toggleTheme() async {
     _config.themeMode = isDarkTheme ? 'light' : 'dark';
-    OpenClawTheme.isDark = _config.themeMode == 'dark';
+    final isDark = _config.themeMode == 'dark';
+    OpenClawTheme.isDark = isDark;
+    await _syncWindowTheme(isDark);
     await _dbService.saveConfig(_config);
     notifyListeners();
   }
@@ -392,14 +412,12 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> updateConfig(GatewayConfig newConfig) async {
     final portChanged = _config.gatewayPort != newConfig.gatewayPort;
     final autoStartChanged = _config.autoStartGateway != newConfig.autoStartGateway;
-    final themeChanged = _config.themeMode != newConfig.themeMode;
 
     _config = newConfig;
+    final isDark = _config.themeMode == 'dark';
+    OpenClawTheme.isDark = isDark;
+    await _syncWindowTheme(isDark);
     await _dbService.saveConfig(_config);
-
-    if (themeChanged) {
-      OpenClawTheme.isDark = _config.themeMode == 'dark';
-    }
 
     await reloadSkills();
 

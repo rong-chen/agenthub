@@ -48,6 +48,29 @@ class GatewayConfig {
     };
   }
 
+  /// 复制并更新部分属性
+  GatewayConfig copyWith({
+    int? gatewayPort,
+    bool? autoStartGateway,
+    String? apiBaseUrl,
+    String? apiKey,
+    String? modelName,
+    String? customSkillsPath,
+    bool? minimizeToTrayOnClose,
+    String? themeMode,
+  }) {
+    return GatewayConfig(
+      gatewayPort: gatewayPort ?? this.gatewayPort,
+      autoStartGateway: autoStartGateway ?? this.autoStartGateway,
+      apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
+      apiKey: apiKey ?? this.apiKey,
+      modelName: modelName ?? this.modelName,
+      customSkillsPath: customSkillsPath ?? this.customSkillsPath,
+      minimizeToTrayOnClose: minimizeToTrayOnClose ?? this.minimizeToTrayOnClose,
+      themeMode: themeMode ?? this.themeMode,
+    );
+  }
+
   /// 从 JSON 读取配置
   factory GatewayConfig.fromJson(Map<String, dynamic> json) {
     return GatewayConfig(

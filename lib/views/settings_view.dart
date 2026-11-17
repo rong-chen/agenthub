@@ -74,9 +74,10 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
+    OpenClawTheme.isDark = provider.isDarkTheme;
 
     return Container(
-      color: OpenClawTheme.background,
+      color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
         children: [
@@ -173,8 +174,7 @@ class _SettingsViewState extends State<SettingsView> {
         setState(() => _themeMode = value);
         final provider = context.read<AppStateProvider>();
         if (provider.config.themeMode != value) {
-          final newConfig = provider.config;
-          newConfig.themeMode = value;
+          final newConfig = provider.config.copyWith(themeMode: value);
           provider.updateConfig(newConfig);
         }
       },

@@ -7,10 +7,10 @@
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
-  // 单实例运行检测：防止重复打开多个窗口
+  // Single instance check: prevent multiple window instances
   HANDLE hMutex = ::CreateMutex(nullptr, TRUE, L"AgentHub_Desktop_App_Instance_Mutex");
   if (::GetLastError() == ERROR_ALREADY_EXISTS) {
-    // 已有实例在运行，查找并激活已有窗口，直接退出新实例
+    // Bring existing window to foreground and exit
     HWND existingHwnd = ::FindWindow(L"FLUTTER_RUNNER_WIN32_WINDOW", nullptr);
     if (existingHwnd != nullptr) {
       ::ShowWindow(existingHwnd, SW_RESTORE);
