@@ -5,7 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'providers/app_state_provider.dart';
 import 'services/tray_service.dart';
-import 'theme/openclaw_theme.dart';
+import 'theme/agenthub_theme.dart';
 import 'views/home_view.dart';
 
 void main() async {
@@ -28,12 +28,12 @@ void main() async {
   }
 
   // 启动应用根组件
-  runApp(const OpenClawApp());
+  runApp(const AgentHubApp());
 }
 
 /// 应用程序根组件
-class OpenClawApp extends StatelessWidget {
-  const OpenClawApp({super.key});
+class AgentHubApp extends StatelessWidget {
+  const AgentHubApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -43,12 +43,12 @@ class OpenClawApp extends StatelessWidget {
         builder: (context, provider, _) {
           final isDark = provider.isDarkTheme;
           // 同步全局主题模式
-          OpenClawTheme.isDark = isDark;
+          AgentHubTheme.isDark = isDark;
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-            theme: OpenClawTheme.buildTheme(false),
-            darkTheme: OpenClawTheme.buildTheme(true),
+            theme: AgentHubTheme.buildTheme(false),
+            darkTheme: AgentHubTheme.buildTheme(true),
             home: const HomeView(),
           );
         },

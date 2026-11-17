@@ -4,7 +4,7 @@ import 'package:agenthub/models/skill_model.dart';
 import 'package:agenthub/services/skill_service.dart';
 
 void main() {
-  test('验证 OpenClaw SKILL.md 解析与加载', () async {
+  test('验证 AgentHub SKILL.md 解析与加载', () async {
     final tempDir = await Directory.systemTemp.createTemp('agenthub_skill_test_');
     try {
       final sampleDir = Directory('${tempDir.path}/sample_skill');
@@ -15,8 +15,10 @@ name: sample_skill
 description: 获取当前主机系统与环境状态
 version: 1.0.0
 metadata:
-  required_bins:
-    - uname
+  agenthub:
+    requires:
+      bins:
+        - uname
 ---
 # 示例说明
 ''');
@@ -26,6 +28,7 @@ metadata:
       expect(skill!.name, 'sample_skill');
       expect(skill.description, '获取当前主机系统与环境状态');
       expect(skill.version, '1.0.0');
+      expect(skill.requiredBins, contains('uname'));
 
       final service = SkillService();
       final skills = await service.loadAllSkills(customPath: tempDir.path);

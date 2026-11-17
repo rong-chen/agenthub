@@ -10,11 +10,11 @@
 - 在 `lib/providers/app_state_provider.dart` 中增加对用户输入指令（`注册定时 <名称> <周期> [类型]`）以及对模型输出代码块（```task ... ```）的自动解析与注册逻辑。
 
 ### 3. 统一顶栏与内容区背景颜色
-- 在 `lib/theme/openclaw_theme.dart` 中将 `headerBackground` 设置为与 `background` 严格一致，消除顶栏与内容区之间的色彩突兀感。
+- 在 `lib/theme/agenthub_theme.dart` 中将 `headerBackground` 设置为与 `background` 严格一致，消除顶栏与内容区之间的色彩突兀感。
 
 ### 4. 修复主题色切换失效问题
-- 修复 `OpenClawTheme.buildTheme` 在构建时直接修改全局静态变量导致明亮主题被暗黑主题覆盖的问题。
-- 将 `OpenClawTheme.isDark` 的同步绑定至 `AppStateProvider.isDarkTheme`，并在设置页面点击主题时即时生效。
+- 修复 `AgentHubTheme.buildTheme` 在构建时直接修改全局静态变量导致明亮主题被暗黑主题覆盖的问题。
+- 将 `AgentHubTheme.isDark` 的同步绑定至 `AppStateProvider.isDarkTheme`，并在设置页面点击主题时即时生效。
 
 ### 5. 移除主页概念与多余导航
 - 移除侧边栏与对话页面中的“主页”相关标题与导航标签，直接展示对话内容。

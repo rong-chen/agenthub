@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:yaml/yaml.dart';
 
-/// 技能数据模型，对应 OpenClaw 的 SKILL.md 规范
+/// 技能数据模型，对应 AgentHub 的 SKILL.md 规范
 class SkillModel {
   final String name;
   final String description;
@@ -59,9 +59,9 @@ class SkillModel {
 
     final metadata = yamlMap['metadata'];
     if (metadata is Map) {
-      final openclaw = metadata['openclaw'];
-      if (openclaw is Map) {
-        final requires = openclaw['requires'];
+      final agenthub = metadata['agenthub'];
+      if (agenthub is Map) {
+        final requires = agenthub['requires'];
         if (requires is Map) {
           final bins = requires['bins'];
           if (bins is List) {

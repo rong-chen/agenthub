@@ -4,7 +4,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_message_model.dart';
 import '../providers/app_state_provider.dart';
-import '../theme/openclaw_theme.dart';
+import '../theme/agenthub_theme.dart';
 
 /// 对话交互视图
 class ChatView extends StatefulWidget {
@@ -64,7 +64,7 @@ class _ChatViewState extends State<ChatView> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
-    OpenClawTheme.isDark = provider.isDarkTheme;
+    AgentHubTheme.isDark = provider.isDarkTheme;
     final messages = provider.messages;
 
     // 会话切换或新消息到达时平滑滚动到底部
@@ -120,9 +120,9 @@ class _ChatViewState extends State<ChatView> {
                 Container(
                   width: 32,
                   height: 32,
-                  decoration: BoxDecoration(color: OpenClawTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: AgentHubTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
                   alignment: Alignment.center,
-                  child: Icon(Icons.smart_toy_outlined, size: 18, color: OpenClawTheme.textPrimary),
+                  child: Icon(Icons.smart_toy_outlined, size: 18, color: AgentHubTheme.textPrimary),
                 ),
                 const SizedBox(width: 10),
               ],
@@ -132,21 +132,21 @@ class _ChatViewState extends State<ChatView> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isUser ? OpenClawTheme.primaryRedLight : OpenClawTheme.cardBackground,
+                      color: isUser ? AgentHubTheme.primaryRedLight : AgentHubTheme.cardBackground,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: OpenClawTheme.border),
+                      border: Border.all(color: AgentHubTheme.border),
                     ),
                     child: isUser
-                        ? Text(message.content, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.5, fontWeight: FontWeight.w500))
+                        ? Text(message.content, style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, height: 1.5, fontWeight: FontWeight.w500))
                         : MarkdownBody(
                             data: message.content,
                             styleSheet: MarkdownStyleSheet(
-                              p: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.6, fontWeight: FontWeight.w500),
-                              code: TextStyle(backgroundColor: OpenClawTheme.pillBackground, color: OpenClawTheme.titleRed, fontSize: 12, fontWeight: FontWeight.w600),
+                              p: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, height: 1.6, fontWeight: FontWeight.w500),
+                              code: TextStyle(backgroundColor: AgentHubTheme.pillBackground, color: AgentHubTheme.titleRed, fontSize: 12, fontWeight: FontWeight.w600),
                               codeblockDecoration: BoxDecoration(
-                                color: OpenClawTheme.pillBackground,
+                                color: AgentHubTheme.pillBackground,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: OpenClawTheme.border),
+                                border: Border.all(color: AgentHubTheme.border),
                               ),
                             ),
                           ),
@@ -159,7 +159,7 @@ class _ChatViewState extends State<ChatView> {
                 Container(
                   width: 32,
                   height: 32,
-                  decoration: BoxDecoration(color: OpenClawTheme.primaryRed, borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: AgentHubTheme.primaryRed, borderRadius: BorderRadius.circular(8)),
                   alignment: Alignment.center,
                   child: const Icon(Icons.person_outlined, size: 18, color: Colors.white),
                 ),
@@ -175,13 +175,13 @@ class _ChatViewState extends State<ChatView> {
   Widget _buildInputArea(AppStateProvider provider) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      color: OpenClawTheme.background,
+      color: AgentHubTheme.background,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: OpenClawTheme.cardBackground,
+          color: AgentHubTheme.cardBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: OpenClawTheme.border),
+          border: Border.all(color: AgentHubTheme.border),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -204,10 +204,10 @@ class _ChatViewState extends State<ChatView> {
                   enabled: !provider.isBusy,
                   maxLines: 4,
                   minLines: 1,
-                  style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: '输入内容...',
-                    hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),
+                    hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
                     filled: false,
                     fillColor: Colors.transparent,
                     border: InputBorder.none,
@@ -225,8 +225,8 @@ class _ChatViewState extends State<ChatView> {
               OutlinedButton(
                 onPressed: () => provider.abortCurrentGeneration(),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: OpenClawTheme.primaryRed,
-                  side: const BorderSide(color: OpenClawTheme.primaryRed),
+                  foregroundColor: AgentHubTheme.primaryRed,
+                  side: const BorderSide(color: AgentHubTheme.primaryRed),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
@@ -237,7 +237,7 @@ class _ChatViewState extends State<ChatView> {
             ElevatedButton(
               onPressed: provider.isBusy ? null : _handleSend,
               style: ElevatedButton.styleFrom(
-                backgroundColor: OpenClawTheme.primaryRed,
+                backgroundColor: AgentHubTheme.primaryRed,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

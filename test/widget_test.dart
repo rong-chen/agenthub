@@ -3,7 +3,7 @@ import 'package:agenthub/main.dart';
 
 void main() {
   testWidgets('App basic initialization test', (WidgetTester tester) async {
-    await tester.pumpWidget(const OpenClawApp());
+    await tester.pumpWidget(const AgentHubApp());
     await tester.pumpAndSettle(const Duration(seconds: 1));
   });
 }

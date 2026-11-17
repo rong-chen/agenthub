@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/gateway_config.dart';
 import '../providers/app_state_provider.dart';
-import '../theme/openclaw_theme.dart';
+import '../theme/agenthub_theme.dart';
 
 /// 系统设置视图（含主题切换）
 class SettingsView extends StatefulWidget {
@@ -74,18 +74,18 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
-    OpenClawTheme.isDark = provider.isDarkTheme;
+    AgentHubTheme.isDark = provider.isDarkTheme;
 
     return Container(
       color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
         children: [
-          Text('系统设置', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: OpenClawTheme.titleRed)),
+          Text('系统设置', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AgentHubTheme.titleRed)),
           const SizedBox(height: 20),
           // 主题设置
           _buildCard([
-            Text('主题', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            Text('主题', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary)),
             const SizedBox(height: 14),
             Row(
               children: [
@@ -99,32 +99,32 @@ class _SettingsViewState extends State<SettingsView> {
           // 网关配置
           _buildCard([
             Row(children: [
-              Text('网关', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+              Text('网关', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary)),
               const Spacer(),
               Container(
                 width: 7, height: 7,
-                decoration: BoxDecoration(color: provider.isGatewayOnline ? OpenClawTheme.statusGreen : OpenClawTheme.statusGray, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: provider.isGatewayOnline ? AgentHubTheme.statusGreen : AgentHubTheme.statusGray, shape: BoxShape.circle),
               ),
               const SizedBox(width: 6),
               Text(
                 provider.isGatewayOnline ? '在线' : '离线',
-                style: TextStyle(fontSize: 12, color: provider.isGatewayOnline ? OpenClawTheme.statusGreen : OpenClawTheme.textTertiary),
+                style: TextStyle(fontSize: 12, color: provider.isGatewayOnline ? AgentHubTheme.statusGreen : AgentHubTheme.textTertiary),
               ),
             ]),
             const SizedBox(height: 14),
             _buildField('端口', _gatewayPortController, ''),
             const SizedBox(height: 12),
             Row(children: [
-              Text('自动启动', style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary)),
+              Text('自动启动', style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary)),
               const Spacer(),
-              Switch(value: _autoStartGateway, activeColor: OpenClawTheme.primaryRed, onChanged: (val) => setState(() => _autoStartGateway = val)),
+              Switch(value: _autoStartGateway, activeColor: AgentHubTheme.primaryRed, onChanged: (val) => setState(() => _autoStartGateway = val)),
             ]),
             const SizedBox(height: 8),
             OutlinedButton(
               onPressed: _handleToggleGateway,
               style: OutlinedButton.styleFrom(
-                foregroundColor: provider.isGatewayOnline ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary,
-                side: BorderSide(color: provider.isGatewayOnline ? OpenClawTheme.primaryRed : OpenClawTheme.border),
+                foregroundColor: provider.isGatewayOnline ? AgentHubTheme.primaryRed : AgentHubTheme.textPrimary,
+                side: BorderSide(color: provider.isGatewayOnline ? AgentHubTheme.primaryRed : AgentHubTheme.border),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
@@ -134,7 +134,7 @@ class _SettingsViewState extends State<SettingsView> {
           const SizedBox(height: 16),
           // 大模型配置
           _buildCard([
-            Text('模型服务', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            Text('模型服务', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary)),
             const SizedBox(height: 14),
             _buildField('服务地址', _apiBaseUrlController, ''),
             const SizedBox(height: 12),
@@ -145,20 +145,20 @@ class _SettingsViewState extends State<SettingsView> {
           const SizedBox(height: 16),
           // 通用配置
           _buildCard([
-            Text('常规', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            Text('常规', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary)),
             const SizedBox(height: 14),
             _buildField('插件目录', _customSkillsPathController, ''),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: Text('最小化到托盘', style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary))),
-              Switch(value: _minimizeToTray, activeColor: OpenClawTheme.primaryRed, onChanged: (val) => setState(() => _minimizeToTray = val)),
+              Expanded(child: Text('最小化到托盘', style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary))),
+              Switch(value: _minimizeToTray, activeColor: AgentHubTheme.primaryRed, onChanged: (val) => setState(() => _minimizeToTray = val)),
             ]),
           ]),
           const SizedBox(height: 24),
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             ElevatedButton(
               onPressed: _handleSave,
-              style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              style: ElevatedButton.styleFrom(backgroundColor: AgentHubTheme.primaryRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
               child: const Text('保存', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             ),
           ]),
@@ -183,15 +183,15 @@ class _SettingsViewState extends State<SettingsView> {
         width: 120,
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: sel ? OpenClawTheme.primaryRedLight : OpenClawTheme.background,
+          color: sel ? AgentHubTheme.primaryRedLight : AgentHubTheme.background,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: sel ? OpenClawTheme.primaryRed : OpenClawTheme.border, width: sel ? 2 : 1),
+          border: Border.all(color: sel ? AgentHubTheme.primaryRed : AgentHubTheme.border, width: sel ? 2 : 1),
         ),
         alignment: Alignment.center,
         child: Column(children: [
-          Icon(value == 'light' ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 22, color: sel ? OpenClawTheme.primaryRed : OpenClawTheme.textSecondary),
+          Icon(value == 'light' ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 22, color: sel ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary),
           const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 13, fontWeight: sel ? FontWeight.bold : FontWeight.normal, color: sel ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary)),
+          Text(label, style: TextStyle(fontSize: 13, fontWeight: sel ? FontWeight.bold : FontWeight.normal, color: sel ? AgentHubTheme.primaryRed : AgentHubTheme.textPrimary)),
         ]),
       ),
     );
@@ -200,36 +200,36 @@ class _SettingsViewState extends State<SettingsView> {
   Widget _buildCard(List<Widget> children) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: OpenClawTheme.cardBackground, borderRadius: BorderRadius.circular(12), border: Border.all(color: OpenClawTheme.border)),
+      decoration: BoxDecoration(color: AgentHubTheme.cardBackground, borderRadius: BorderRadius.circular(12), border: Border.all(color: AgentHubTheme.border)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
   }
 
   Widget _buildField(String label, TextEditingController controller, String hint, {bool isPassword = false}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary, fontWeight: FontWeight.w500)),
+      Text(label, style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary, fontWeight: FontWeight.w500)),
       const SizedBox(height: 6),
       TextField(
         controller: controller,
         obscureText: isPassword,
-        style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+        style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),
+          hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
           filled: true,
-          fillColor: OpenClawTheme.inputBackground,
+          fillColor: AgentHubTheme.inputBackground,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: OpenClawTheme.border),
+            borderSide: BorderSide(color: AgentHubTheme.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: OpenClawTheme.border),
+            borderSide: BorderSide(color: AgentHubTheme.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: OpenClawTheme.primaryRed),
+            borderSide: const BorderSide(color: AgentHubTheme.primaryRed),
           ),
         ),
       ),

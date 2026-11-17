@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 
-/// 全局配色与视觉主题规范（暖纸明亮 / VS Code 暗黑双主题）
-class OpenClawTheme {
+/// 全局配色与视觉主题规范（暖纸明亮 / 暗黑双主题）
+class AgentHubTheme {
   // 当前主题模式标识
   static bool isDark = false;
 

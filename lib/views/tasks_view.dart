@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/scheduled_task_model.dart';
 import '../providers/app_state_provider.dart';
-import '../theme/openclaw_theme.dart';
+import '../theme/agenthub_theme.dart';
 
 /// 定时计划任务视图
 class TasksView extends StatefulWidget {
@@ -51,9 +51,9 @@ class _TasksViewState extends State<TasksView> {
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setDialogState) {
           return AlertDialog(
-            backgroundColor: OpenClawTheme.cardBackground,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: OpenClawTheme.border)),
-            title: Text('新建任务', style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+            backgroundColor: AgentHubTheme.cardBackground,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AgentHubTheme.border)),
+            title: Text('新建任务', style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
             content: SizedBox(
               width: 440,
               child: Column(
@@ -72,12 +72,12 @@ class _TasksViewState extends State<TasksView> {
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
                     value: actionType,
-                    dropdownColor: OpenClawTheme.cardBackground,
+                    dropdownColor: AgentHubTheme.cardBackground,
                     decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: OpenClawTheme.border)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AgentHubTheme.border)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
-                    style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary),
+                    style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
                     items: const [
                       DropdownMenuItem(value: 'gateway_check', child: Text('网关检测')),
                       DropdownMenuItem(value: 'skills_reload', child: Text('插件扫描')),
@@ -95,7 +95,7 @@ class _TasksViewState extends State<TasksView> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('取消', style: TextStyle(color: OpenClawTheme.textSecondary))),
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('取消', style: TextStyle(color: AgentHubTheme.textSecondary))),
               ElevatedButton(
                 onPressed: () async {
                   final name = nameCtrl.text.trim();
@@ -111,7 +111,7 @@ class _TasksViewState extends State<TasksView> {
                     isEnabled: true,
                   ));
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                style: ElevatedButton.styleFrom(backgroundColor: AgentHubTheme.primaryRed, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                 child: const Text('新建'),
               ),
             ],
@@ -127,22 +127,22 @@ class _TasksViewState extends State<TasksView> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: OpenClawTheme.cardBackground,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: OpenClawTheme.border)),
-          title: Text(log.taskName, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+          backgroundColor: AgentHubTheme.cardBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AgentHubTheme.border)),
+          title: Text(log.taskName, style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: 480,
             child: SingleChildScrollView(
               child: Text(
                 log.output.toString().trim().isNotEmpty ? log.output.toString() : '无输出内容',
-                style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13, height: 1.5),
+                style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, height: 1.5),
               ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: Text('关闭', style: TextStyle(color: OpenClawTheme.textSecondary)),
+              child: Text('关闭', style: TextStyle(color: AgentHubTheme.textSecondary)),
             ),
           ],
         );
@@ -151,30 +151,30 @@ class _TasksViewState extends State<TasksView> {
   }
 
   Widget _dialogLabel(String text) {
-    return Text(text, style: TextStyle(fontSize: 13, color: OpenClawTheme.textSecondary));
+    return Text(text, style: TextStyle(fontSize: 13, color: AgentHubTheme.textSecondary));
   }
 
   Widget _dialogField(TextEditingController controller, String hint) {
     return TextField(
       controller: controller,
-      style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary),
+      style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary),
+        hintStyle: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary),
         filled: true,
-        fillColor: OpenClawTheme.background,
+        fillColor: AgentHubTheme.background,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: OpenClawTheme.border),
+          borderSide: BorderSide(color: AgentHubTheme.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: OpenClawTheme.border),
+          borderSide: BorderSide(color: AgentHubTheme.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: OpenClawTheme.primaryRed),
+          borderSide: const BorderSide(color: AgentHubTheme.primaryRed),
         ),
       ),
     );
@@ -183,7 +183,7 @@ class _TasksViewState extends State<TasksView> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
-    OpenClawTheme.isDark = provider.isDarkTheme;
+    AgentHubTheme.isDark = provider.isDarkTheme;
     final allTasks = provider.tasks;
     final query = _searchController.text.trim().toLowerCase();
     final filteredTasks = allTasks.where((t) {
@@ -200,11 +200,11 @@ class _TasksViewState extends State<TasksView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('定时任务', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: OpenClawTheme.titleRed)),
+            Text('定时任务', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AgentHubTheme.titleRed)),
             const SizedBox(height: 8),
             Text(
               '${allTasks.length} 任务  ${allTasks.where((t) => t.lastStatus == 'error').length} 失败  活跃 ${allTasks.where((t) => t.isEnabled).length} 项',
-              style: TextStyle(fontSize: 13, color: OpenClawTheme.textSecondary),
+              style: TextStyle(fontSize: 13, color: AgentHubTheme.textSecondary),
             ),
             const SizedBox(height: 16),
             _buildTabsRow(context, provider),
@@ -228,13 +228,13 @@ class _TasksViewState extends State<TasksView> {
         const SizedBox(width: 20),
         _tabItem('运行历史', 1),
         const Spacer(),
-        IconButton(icon: Icon(Icons.refresh, size: 20, color: OpenClawTheme.textSecondary), onPressed: () => provider.reloadTasks()),
+        IconButton(icon: Icon(Icons.refresh, size: 20, color: AgentHubTheme.textSecondary), onPressed: () => provider.reloadTasks()),
         const SizedBox(width: 8),
         ElevatedButton.icon(
           onPressed: () => _showCreateTaskDialog(context),
           icon: const Icon(Icons.add, size: 16),
           label: const Text('新建'),
-          style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+          style: ElevatedButton.styleFrom(backgroundColor: AgentHubTheme.primaryRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
         ),
       ],
     );
@@ -246,9 +246,9 @@ class _TasksViewState extends State<TasksView> {
       onTap: () => setState(() => _activeTab = index),
       child: Column(
         children: [
-          Text(label, style: TextStyle(fontSize: 14, fontWeight: sel ? FontWeight.bold : FontWeight.normal, color: sel ? OpenClawTheme.textPrimary : OpenClawTheme.textSecondary)),
+          Text(label, style: TextStyle(fontSize: 14, fontWeight: sel ? FontWeight.bold : FontWeight.normal, color: sel ? AgentHubTheme.textPrimary : AgentHubTheme.textSecondary)),
           const SizedBox(height: 6),
-          Container(height: 2, width: label.length * 14.0, color: sel ? OpenClawTheme.primaryRed : Colors.transparent),
+          Container(height: 2, width: label.length * 14.0, color: sel ? AgentHubTheme.primaryRed : Colors.transparent),
         ],
       ),
     );
@@ -260,15 +260,15 @@ class _TasksViewState extends State<TasksView> {
         Expanded(
           child: Container(
             height: 38,
-            decoration: BoxDecoration(color: OpenClawTheme.cardBackground, borderRadius: BorderRadius.circular(8), border: Border.all(color: OpenClawTheme.border)),
+            decoration: BoxDecoration(color: AgentHubTheme.cardBackground, borderRadius: BorderRadius.circular(8), border: Border.all(color: AgentHubTheme.border)),
             child: TextField(
               controller: _searchController,
               onChanged: (_) => setState(() {}),
-              style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary),
+              style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
               decoration: InputDecoration(
                 hintText: '搜索',
-                hintStyle: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary),
-                prefixIcon: Icon(Icons.search, size: 18, color: OpenClawTheme.textTertiary),
+                hintStyle: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary),
+                prefixIcon: Icon(Icons.search, size: 18, color: AgentHubTheme.textTertiary),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -280,7 +280,7 @@ class _TasksViewState extends State<TasksView> {
         const SizedBox(width: 12),
         Container(
           padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(color: OpenClawTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: AgentHubTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
           child: Row(children: [_filterPill('全部', 'all'), _filterPill('活跃', 'active'), _filterPill('已暂停', 'paused')]),
         ),
       ],
@@ -295,39 +295,39 @@ class _TasksViewState extends State<TasksView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: sel ? OpenClawTheme.cardBackground : Colors.transparent,
+          color: sel ? AgentHubTheme.cardBackground : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: sel ? FontWeight.w600 : FontWeight.normal, color: sel ? OpenClawTheme.textPrimary : OpenClawTheme.textSecondary)),
+        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: sel ? FontWeight.w600 : FontWeight.normal, color: sel ? AgentHubTheme.textPrimary : AgentHubTheme.textSecondary)),
       ),
     );
   }
 
   Widget _buildTaskTable(BuildContext context, AppStateProvider provider, List<ScheduledTaskModel> tasks, int totalCount) {
     return Container(
-      decoration: BoxDecoration(color: OpenClawTheme.cardBackground, borderRadius: BorderRadius.circular(12), border: Border.all(color: OpenClawTheme.border)),
+      decoration: BoxDecoration(color: AgentHubTheme.cardBackground, borderRadius: BorderRadius.circular(12), border: Border.all(color: AgentHubTheme.border)),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: OpenClawTheme.divider))),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AgentHubTheme.divider))),
             child: Row(children: [
-              Expanded(flex: 3, child: Text('名称', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('周期', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('类型', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('下次执行', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('上次执行', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              SizedBox(width: 90, child: Text('操作', textAlign: TextAlign.end, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+              Expanded(flex: 3, child: Text('名称', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('周期', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('类型', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('下次执行', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('上次执行', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+              SizedBox(width: 90, child: Text('操作', textAlign: TextAlign.end, style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
             ]),
           ),
           if (tasks.isEmpty)
-            Container(padding: const EdgeInsets.symmetric(vertical: 40), alignment: Alignment.center, child: Text('暂无匹配的任务', style: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary)))
+            Container(padding: const EdgeInsets.symmetric(vertical: 40), alignment: Alignment.center, child: Text('暂无匹配的任务', style: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary)))
           else
             ...tasks.map((task) => _buildTaskRow(provider, task)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: OpenClawTheme.divider))),
-            child: Align(alignment: Alignment.centerLeft, child: Text('共 $totalCount 项', style: TextStyle(fontSize: 12, color: OpenClawTheme.textTertiary))),
+            decoration: BoxDecoration(border: Border(top: BorderSide(color: AgentHubTheme.divider))),
+            child: Align(alignment: Alignment.centerLeft, child: Text('共 $totalCount 项', style: TextStyle(fontSize: 12, color: AgentHubTheme.textTertiary))),
           ),
         ],
       ),
@@ -342,41 +342,41 @@ class _TasksViewState extends State<TasksView> {
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: OpenClawTheme.divider))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AgentHubTheme.divider))),
       child: Row(children: [
         Expanded(
           flex: 3,
           child: Row(children: [
-            Container(width: 7, height: 7, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: task.isEnabled ? OpenClawTheme.statusGreen : OpenClawTheme.statusGray, shape: BoxShape.circle)),
-            Expanded(child: Text(task.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: OpenClawTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+            Container(width: 7, height: 7, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: task.isEnabled ? AgentHubTheme.statusGreen : AgentHubTheme.statusGray, shape: BoxShape.circle)),
+            Expanded(child: Text(task.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AgentHubTheme.textPrimary), overflow: TextOverflow.ellipsis)),
           ]),
         ),
-        Expanded(flex: 2, child: Text(task.schedule, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary), overflow: TextOverflow.ellipsis)),
-        Expanded(flex: 2, child: Text(statusLabel[task.actionType] ?? task.actionType, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-        Expanded(flex: 2, child: Text(_formatRelativeTime(task.nextRun), style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary), overflow: TextOverflow.ellipsis)),
+        Expanded(flex: 2, child: Text(task.schedule, style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary), overflow: TextOverflow.ellipsis)),
+        Expanded(flex: 2, child: Text(statusLabel[task.actionType] ?? task.actionType, style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+        Expanded(flex: 2, child: Text(_formatRelativeTime(task.nextRun), style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary), overflow: TextOverflow.ellipsis)),
         Expanded(
           flex: 2,
           child: Row(children: [
-            if (task.lastStatus == 'success') Icon(Icons.check, size: 14, color: OpenClawTheme.statusGreen),
-            if (task.lastStatus == 'error') Icon(Icons.close, size: 14, color: OpenClawTheme.primaryRed),
+            if (task.lastStatus == 'success') Icon(Icons.check, size: 14, color: AgentHubTheme.statusGreen),
+            if (task.lastStatus == 'error') Icon(Icons.close, size: 14, color: AgentHubTheme.primaryRed),
             const SizedBox(width: 4),
-            Expanded(child: Text(_formatRelativeTime(task.lastRun), style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary), overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(_formatRelativeTime(task.lastRun), style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary), overflow: TextOverflow.ellipsis)),
           ]),
         ),
         SizedBox(
           width: 90,
           child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            IconButton(icon: Icon(Icons.play_arrow_outlined, size: 18, color: OpenClawTheme.textSecondary), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => provider.triggerTask(task.id)),
+            IconButton(icon: Icon(Icons.play_arrow_outlined, size: 18, color: AgentHubTheme.textSecondary), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => provider.triggerTask(task.id)),
             const SizedBox(width: 4),
             SizedBox(
               width: 36,
               height: 20,
               child: FittedBox(
-                child: Switch(value: task.isEnabled, activeColor: OpenClawTheme.primaryRed, onChanged: (val) => provider.toggleTask(task.id, val)),
+                child: Switch(value: task.isEnabled, activeColor: AgentHubTheme.primaryRed, onChanged: (val) => provider.toggleTask(task.id, val)),
               ),
             ),
             const SizedBox(width: 4),
-            IconButton(icon: Icon(Icons.delete_outline, size: 16, color: OpenClawTheme.textTertiary), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => provider.removeTask(task.id)),
+            IconButton(icon: Icon(Icons.delete_outline, size: 16, color: AgentHubTheme.textTertiary), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => provider.removeTask(task.id)),
           ]),
         ),
       ]),
@@ -386,38 +386,38 @@ class _TasksViewState extends State<TasksView> {
   Widget _buildRunHistoryTable(AppStateProvider provider) {
     final logs = provider.taskLogs;
     return Container(
-      decoration: BoxDecoration(color: OpenClawTheme.cardBackground, borderRadius: BorderRadius.circular(12), border: Border.all(color: OpenClawTheme.border)),
+      decoration: BoxDecoration(color: AgentHubTheme.cardBackground, borderRadius: BorderRadius.circular(12), border: Border.all(color: AgentHubTheme.border)),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: OpenClawTheme.divider))),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AgentHubTheme.divider))),
             child: Row(children: [
-              Expanded(flex: 3, child: Text('任务', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 3, child: Text('执行时间', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('耗时', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('状态', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+              Expanded(flex: 3, child: Text('任务', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+              Expanded(flex: 3, child: Text('执行时间', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('耗时', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('状态', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
             ]),
           ),
           if (logs.isEmpty)
-            Container(padding: const EdgeInsets.symmetric(vertical: 40), alignment: Alignment.center, child: Text('暂无运行记录', style: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary)))
+            Container(padding: const EdgeInsets.symmetric(vertical: 40), alignment: Alignment.center, child: Text('暂无运行记录', style: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary)))
           else
             ...logs.take(50).map((log) {
               return InkWell(
                 onTap: () => _showLogDetail(context, log),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: OpenClawTheme.divider))),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AgentHubTheme.divider))),
                   child: Row(children: [
-                    Expanded(flex: 3, child: Text(log.taskName, style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary), overflow: TextOverflow.ellipsis)),
-                    Expanded(flex: 3, child: Text(_formatRelativeTime(log.executedAt), style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-                    Expanded(flex: 2, child: Text('${log.durationMs}ms', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+                    Expanded(flex: 3, child: Text(log.taskName, style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+                    Expanded(flex: 3, child: Text(_formatRelativeTime(log.executedAt), style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
+                    Expanded(flex: 2, child: Text('${log.durationMs}ms', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary))),
                     Expanded(
                       flex: 2,
                       child: Row(children: [
-                        Container(width: 7, height: 7, decoration: BoxDecoration(color: log.isSuccess ? OpenClawTheme.statusGreen : OpenClawTheme.primaryRed, shape: BoxShape.circle)),
+                        Container(width: 7, height: 7, decoration: BoxDecoration(color: log.isSuccess ? AgentHubTheme.statusGreen : AgentHubTheme.primaryRed, shape: BoxShape.circle)),
                         const SizedBox(width: 6),
-                        Text(log.isSuccess ? '成功' : '失败', style: TextStyle(fontSize: 12, color: log.isSuccess ? OpenClawTheme.statusGreen : OpenClawTheme.primaryRed)),
+                        Text(log.isSuccess ? '成功' : '失败', style: TextStyle(fontSize: 12, color: log.isSuccess ? AgentHubTheme.statusGreen : AgentHubTheme.primaryRed)),
                       ]),
                     ),
                   ]),
@@ -426,8 +426,8 @@ class _TasksViewState extends State<TasksView> {
             }),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: OpenClawTheme.divider))),
-            child: Align(alignment: Alignment.centerLeft, child: Text('共 ${logs.length} 条记录', style: TextStyle(fontSize: 12, color: OpenClawTheme.textTertiary))),
+            decoration: BoxDecoration(border: Border(top: BorderSide(color: AgentHubTheme.divider))),
+            child: Align(alignment: Alignment.centerLeft, child: Text('共 ${logs.length} 条记录', style: TextStyle(fontSize: 12, color: AgentHubTheme.textTertiary))),
           ),
         ],
       ),

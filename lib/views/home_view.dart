@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 import '../providers/app_state_provider.dart';
-import '../theme/openclaw_theme.dart';
+import '../theme/agenthub_theme.dart';
 import 'chat_view.dart';
 import 'tasks_view.dart';
 import 'skills_view.dart';
@@ -45,7 +45,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
     // 强制同步当前主题模式，防止静态变量未即时更新
-    OpenClawTheme.isDark = provider.isDarkTheme;
+    AgentHubTheme.isDark = provider.isDarkTheme;
 
     return Scaffold(
       backgroundColor: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
@@ -53,13 +53,13 @@ class _HomeViewState extends State<HomeView> with WindowListener {
         children: [
           if (!_isSidebarCollapsed) ...[
             _buildSidebar(context, provider),
-            VerticalDivider(width: 1, thickness: 1, color: OpenClawTheme.divider),
+            VerticalDivider(width: 1, thickness: 1, color: AgentHubTheme.divider),
           ],
           Expanded(
             child: Column(
               children: [
                 _buildTopBar(context, provider),
-                Divider(height: 1, thickness: 1, color: OpenClawTheme.divider),
+                Divider(height: 1, thickness: 1, color: AgentHubTheme.divider),
                 Expanded(
                   child: IndexedStack(
                     index: provider.currentTabIndex,
@@ -95,9 +95,9 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             }).toList();
 
             return AlertDialog(
-              backgroundColor: OpenClawTheme.cardBackground,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: OpenClawTheme.border)),
-              title: Text('搜索', style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+              backgroundColor: AgentHubTheme.cardBackground,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AgentHubTheme.border)),
+              title: Text('搜索', style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
               content: SizedBox(
                 width: 440,
                 child: Column(
@@ -106,14 +106,14 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                     TextField(
                       controller: searchCtrl,
                       onChanged: (_) => setDialogState(() {}),
-                      style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
+                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: OpenClawTheme.background,
+                        fillColor: AgentHubTheme.background,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: OpenClawTheme.border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: OpenClawTheme.border)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OpenClawTheme.primaryRed)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AgentHubTheme.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AgentHubTheme.border)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AgentHubTheme.primaryRed)),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -122,7 +122,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                       child: matches.isEmpty
                           ? Padding(
                               padding: const EdgeInsets.all(24),
-                              child: Text('无匹配内容', style: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13)),
+                              child: Text('无匹配内容', style: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13)),
                             )
                           : ListView.builder(
                               shrinkWrap: true,
@@ -131,8 +131,8 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                                 final s = matches[idx];
                                 return ListTile(
                                   dense: true,
-                                  title: Text(s.title, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  trailing: Icon(Icons.arrow_forward_ios, size: 12, color: OpenClawTheme.textTertiary),
+                                  title: Text(s.title, style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  trailing: Icon(Icons.arrow_forward_ios, size: 12, color: AgentHubTheme.textTertiary),
                                   onTap: () {
                                     provider.switchSession(s.id);
                                     provider.selectTab(0);
@@ -148,7 +148,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: Text('关闭', style: TextStyle(color: OpenClawTheme.textSecondary)),
+                  child: Text('关闭', style: TextStyle(color: AgentHubTheme.textSecondary)),
                 ),
               ],
             );
@@ -172,11 +172,11 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: OpenClawTheme.cardBackground,
+                color: AgentHubTheme.cardBackground,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: OpenClawTheme.border),
+                border: Border.all(color: AgentHubTheme.border),
               ),
-              child: Icon(Icons.view_sidebar_outlined, size: 16, color: OpenClawTheme.textSecondary),
+              child: Icon(Icons.view_sidebar_outlined, size: 16, color: AgentHubTheme.textSecondary),
             ),
           ),
           const SizedBox(width: 8),
@@ -186,11 +186,11 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: OpenClawTheme.cardBackground,
+                color: AgentHubTheme.cardBackground,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: OpenClawTheme.border),
+                border: Border.all(color: AgentHubTheme.border),
               ),
-              child: Icon(Icons.search, size: 16, color: OpenClawTheme.textSecondary),
+              child: Icon(Icons.search, size: 16, color: AgentHubTheme.textSecondary),
             ),
           ),
           const Spacer(),
@@ -201,15 +201,15 @@ class _HomeViewState extends State<HomeView> with WindowListener {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: OpenClawTheme.cardBackground,
+                  color: AgentHubTheme.cardBackground,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: OpenClawTheme.border),
+                  border: Border.all(color: AgentHubTheme.border),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, size: 14, color: OpenClawTheme.textSecondary),
+                    Icon(Icons.delete_outline, size: 14, color: AgentHubTheme.textSecondary),
                     const SizedBox(width: 4),
-                    Text('清空', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary)),
+                    Text('清空', style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary)),
                   ],
                 ),
               ),
@@ -223,14 +223,14 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: OpenClawTheme.cardBackground,
+                color: AgentHubTheme.cardBackground,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: OpenClawTheme.border),
+                border: Border.all(color: AgentHubTheme.border),
               ),
               child: Icon(
                 provider.isDarkTheme ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
                 size: 16,
-                color: OpenClawTheme.textSecondary,
+                color: AgentHubTheme.textSecondary,
               ),
             ),
           ),
@@ -255,7 +255,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Divider(height: 1, thickness: 1, color: OpenClawTheme.divider),
+            child: Divider(height: 1, thickness: 1, color: AgentHubTheme.divider),
           ),
           const SizedBox(height: 8),
           // 会话列表
@@ -277,23 +277,23 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: OpenClawTheme.pillBackground,
+              color: AgentHubTheme.pillBackground,
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: Icon(Icons.hub_outlined, size: 18, color: OpenClawTheme.textPrimary),
+            child: Icon(Icons.hub_outlined, size: 18, color: AgentHubTheme.textPrimary),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               // 只显示状态信息，不再显示 'AgentHub'
               provider.config.modelName.isNotEmpty ? provider.config.modelName : '服务正常',
-              style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           IconButton(
-            icon: Icon(Icons.add, size: 18, color: OpenClawTheme.textSecondary),
+            icon: Icon(Icons.add, size: 18, color: AgentHubTheme.textSecondary),
             tooltip: '新建',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -319,12 +319,12 @@ class _HomeViewState extends State<HomeView> with WindowListener {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? OpenClawTheme.primaryRedLight : Colors.transparent,
+            color: isSelected ? AgentHubTheme.primaryRedLight : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: isSelected ? OpenClawTheme.primaryRed : OpenClawTheme.textSecondary),
+              Icon(icon, size: 18, color: isSelected ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -332,7 +332,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary,
+                    color: isSelected ? AgentHubTheme.primaryRed : AgentHubTheme.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -341,12 +341,12 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
-                    color: isSelected ? OpenClawTheme.cardBackground : OpenClawTheme.pillBackground,
+                    color: isSelected ? AgentHubTheme.cardBackground : AgentHubTheme.pillBackground,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '$badgeCount',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isSelected ? OpenClawTheme.primaryRed : OpenClawTheme.textSecondary),
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isSelected ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary),
                   ),
                 ),
             ],
@@ -367,14 +367,14 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
             children: [
-              Text('会话', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: OpenClawTheme.textSecondary)),
+              Text('会话', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AgentHubTheme.textSecondary)),
               const Spacer(),
               InkWell(
                 onTap: () async {
                   await provider.createNewSession();
                   provider.selectTab(0);
                 },
-                child: Icon(Icons.add, size: 14, color: OpenClawTheme.textTertiary),
+                child: Icon(Icons.add, size: 14, color: AgentHubTheme.textTertiary),
               ),
             ],
           ),
@@ -384,7 +384,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           child: sessions.isEmpty
               ? Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('暂无会话', style: TextStyle(fontSize: 12, color: OpenClawTheme.textTertiary)),
+                  child: Text('暂无会话', style: TextStyle(fontSize: 12, color: AgentHubTheme.textTertiary)),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -403,7 +403,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                         margin: const EdgeInsets.only(bottom: 2),
                         decoration: BoxDecoration(
-                          color: isActive ? OpenClawTheme.primaryRedLight : Colors.transparent,
+                          color: isActive ? AgentHubTheme.primaryRedLight : Colors.transparent,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
@@ -413,7 +413,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                                 session.title,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isActive ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary,
+                                  color: isActive ? AgentHubTheme.primaryRed : AgentHubTheme.textPrimary,
                                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -423,7 +423,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                             if (isActive)
                               InkWell(
                                 onTap: () => provider.deleteSession(session.id),
-                                child: Icon(Icons.close, size: 14, color: OpenClawTheme.textTertiary),
+                                child: Icon(Icons.close, size: 14, color: AgentHubTheme.textTertiary),
                               ),
                           ],
                         ),
@@ -444,9 +444,9 @@ class _HomeViewState extends State<HomeView> with WindowListener {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       margin: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: OpenClawTheme.cardBackground,
+        color: AgentHubTheme.cardBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: OpenClawTheme.border),
+        border: Border.all(color: AgentHubTheme.border),
       ),
       child: Row(
         children: [
@@ -454,7 +454,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             width: 7,
             height: 7,
             decoration: BoxDecoration(
-              color: isOnline ? OpenClawTheme.statusGreen : OpenClawTheme.statusGray,
+              color: isOnline ? AgentHubTheme.statusGreen : AgentHubTheme.statusGray,
               shape: BoxShape.circle,
             ),
           ),
@@ -462,11 +462,11 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           Expanded(
             child: Text(
               isOnline ? '网关在线' : '网关未启动',
-              style: TextStyle(fontSize: 11, color: OpenClawTheme.textSecondary),
+              style: TextStyle(fontSize: 11, color: AgentHubTheme.textSecondary),
             ),
           ),
           IconButton(
-            icon: Icon(Icons.arrow_downward, size: 13, color: OpenClawTheme.textSecondary),
+            icon: Icon(Icons.arrow_downward, size: 13, color: AgentHubTheme.textSecondary),
             tooltip: '隐藏',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

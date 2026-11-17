@@ -16,7 +16,7 @@ import '../services/agent_service.dart';
 import '../services/cron_scheduler_service.dart';
 import '../services/gateway_server.dart';
 import '../services/tray_service.dart';
-import '../theme/openclaw_theme.dart';
+import '../theme/agenthub_theme.dart';
 
 /// 全局应用状态管理
 class AppStateProvider extends ChangeNotifier {
@@ -94,7 +94,7 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> initialize() async {
     _config = await _dbService.loadConfig();
     final isDark = _config.themeMode == 'dark';
-    OpenClawTheme.isDark = isDark;
+    AgentHubTheme.isDark = isDark;
     await _syncWindowTheme(isDark);
 
     _sessions = await _dbService.loadSessions();
@@ -128,7 +128,7 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> toggleTheme() async {
     _config.themeMode = isDarkTheme ? 'light' : 'dark';
     final isDark = _config.themeMode == 'dark';
-    OpenClawTheme.isDark = isDark;
+    AgentHubTheme.isDark = isDark;
     await _syncWindowTheme(isDark);
     await _dbService.saveConfig(_config);
     notifyListeners();
@@ -422,7 +422,7 @@ class AppStateProvider extends ChangeNotifier {
 
     _config = newConfig;
     final isDark = _config.themeMode == 'dark';
-    OpenClawTheme.isDark = isDark;
+    AgentHubTheme.isDark = isDark;
     await _syncWindowTheme(isDark);
     await _dbService.saveConfig(_config);
 

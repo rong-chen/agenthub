@@ -49,7 +49,7 @@ lib/
     task_service.dart             # 任务管理服务
     tray_service.dart             # 系统托盘服务
   theme/
-    openclaw_theme.dart           # 全局主题与颜色定义
+    agenthub_theme.dart           # 全局主题与颜色定义
   utils/
     path_utils.dart               # 跨平台路径工具
   views/
