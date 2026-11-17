@@ -16,9 +16,7 @@ class TaskService {
     try {
       final file = await _tasksFile;
       if (!await file.exists()) {
-        final initialTasks = _createDefaultTasks();
-        await saveTasks(initialTasks);
-        return initialTasks;
+        return [];
       }
 
       final content = await file.readAsString();
@@ -69,40 +67,5 @@ class TaskService {
       return now.add(const Duration(hours: 9));
     }
     return now.add(const Duration(hours: 1));
-  }
-
-  /// 预设标准后台定时任务
-  List<ScheduledTaskModel> _createDefaultTasks() {
-    final now = DateTime.now();
-    return [
-      ScheduledTaskModel(
-        id: 'task_gateway_check',
-        name: '网关检测',
-        schedule: '0 */30 * * * ?',
-        lastRun: now.subtract(const Duration(minutes: 15)),
-        nextRun: now.add(const Duration(minutes: 15)),
-        isEnabled: true,
-        command: 'curl -s http://127.0.0.1:18789/health',
-      ),
-      ScheduledTaskModel(
-        id: 'task_skill_scan',
-        name: '插件扫描',
-        schedule: '0 0 */1 * * ?',
-        tag: '自动同步',
-        lastRun: null,
-        nextRun: now.add(const Duration(hours: 1)),
-        isEnabled: true,
-        command: 'agenthub skills list',
-      ),
-      ScheduledTaskModel(
-        id: 'task_system_check',
-        name: '系统检测',
-        schedule: '0 0 3 * * ?',
-        lastRun: null,
-        nextRun: now.add(const Duration(hours: 6)),
-        isEnabled: true,
-        command: 'systeminfo',
-      ),
-    ];
   }
 }
