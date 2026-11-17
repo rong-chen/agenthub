@@ -162,14 +162,21 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 删除指定会话
+  /// 删除指定会话，优先选中最靠近的相邻会话
   Future<void> deleteSession(String sessionId) async {
+    final deleteIndex = _sessions.indexWhere((s) => s.id == sessionId);
     await _dbService.deleteSession(sessionId);
     _sessions.removeWhere((s) => s.id == sessionId);
+
     if (_activeSessionId == sessionId) {
-      _activeSessionId = _sessions.isNotEmpty ? _sessions.first.id : null;
-      if (_activeSessionId == null) {
+      if (_sessions.isEmpty) {
         await createNewSession();
+      } else {
+        // 选中最靠近的一个会话：优先保留当前下标（原下一个），若已至末尾则选中前一个
+        final nextIndex = (deleteIndex >= 0 && deleteIndex < _sessions.length)
+            ? deleteIndex
+            : _sessions.length - 1;
+        _activeSessionId = _sessions[nextIndex].id;
       }
     }
     notifyListeners();
