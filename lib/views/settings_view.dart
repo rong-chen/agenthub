@@ -4,7 +4,7 @@ import '../models/gateway_config.dart';
 import '../providers/app_state_provider.dart';
 import '../theme/openclaw_theme.dart';
 
-/// OpenClaw 风格系统与网关设置视图
+/// 系统设置视图（含主题切换）
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
 
@@ -20,6 +20,7 @@ class _SettingsViewState extends State<SettingsView> {
   late TextEditingController _customSkillsPathController;
   late bool _autoStartGateway;
   late bool _minimizeToTray;
+  late String _themeMode;
 
   @override
   void initState() {
@@ -32,6 +33,7 @@ class _SettingsViewState extends State<SettingsView> {
     _customSkillsPathController = TextEditingController(text: config.customSkillsPath);
     _autoStartGateway = config.autoStartGateway;
     _minimizeToTray = config.minimizeToTrayOnClose;
+    _themeMode = config.themeMode;
   }
 
   @override
@@ -44,7 +46,6 @@ class _SettingsViewState extends State<SettingsView> {
     super.dispose();
   }
 
-  /// 切换网关启动与停止
   Future<void> _handleToggleGateway() async {
     final provider = context.read<AppStateProvider>();
     if (provider.isGatewayRunning) {
@@ -52,24 +53,13 @@ class _SettingsViewState extends State<SettingsView> {
     } else {
       await provider.startLocalGateway();
     }
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(provider.gatewayStatusMessage),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.gatewayStatusMessage), duration: const Duration(seconds: 2)));
   }
 
-  /// 保存设置
   Future<void> _handleSave() async {
     final provider = context.read<AppStateProvider>();
     final port = int.tryParse(_gatewayPortController.text.trim()) ?? 18789;
-
     final newConfig = GatewayConfig(
       gatewayPort: port,
       autoStartGateway: _autoStartGateway,
@@ -78,20 +68,11 @@ class _SettingsViewState extends State<SettingsView> {
       modelName: _modelNameController.text.trim(),
       customSkillsPath: _customSkillsPathController.text.trim(),
       minimizeToTrayOnClose: _minimizeToTray,
+      themeMode: _themeMode,
     );
-
     await provider.updateConfig(newConfig);
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('配置已保存'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('配置已保存'), duration: Duration(seconds: 2)));
   }
 
   @override
@@ -103,259 +84,137 @@ class _SettingsViewState extends State<SettingsView> {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
         children: [
-          _buildHeaderRow(),
-          const SizedBox(height: 8),
-          const Text(
-            '本地网关服务与大模型上游接入配置',
-            style: TextStyle(fontSize: 13, color: OpenClawTheme.textSecondary),
-          ),
+          Text('系统设置', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: OpenClawTheme.titleRed)),
           const SizedBox(height: 20),
-          _buildLocalGatewaySection(provider),
+          // 主题设置
+          _buildCard([
+            Text('外观主题', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _themeOption('明亮', 'light'),
+                const SizedBox(width: 12),
+                _themeOption('暗黑', 'dark'),
+              ],
+            ),
+          ]),
           const SizedBox(height: 16),
-          _buildUpstreamModelSection(),
-          const SizedBox(height: 16),
-          _buildCommonSection(),
-          const SizedBox(height: 24),
-          _buildActionButtons(),
-        ],
-      ),
-    );
-  }
-
-  /// 页面标题
-  Widget _buildHeaderRow() {
-    return const Text(
-      '系统设置',
-      style: TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
-        color: OpenClawTheme.titleRed,
-      ),
-    );
-  }
-
-  /// 本地网关服务配置卡片
-  Widget _buildLocalGatewaySection(AppStateProvider provider) {
-    final isOnline = provider.isGatewayOnline;
-    final statusColor = isOnline ? OpenClawTheme.statusGreen : OpenClawTheme.statusGray;
-    final statusText = isOnline
-        ? '网关在线: http://127.0.0.1:${provider.gatewayPort}'
-        : provider.gatewayStatusMessage;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: OpenClawTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                '本地网关服务',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: OpenClawTheme.textPrimary,
-                ),
-              ),
+          // 网关配置
+          _buildCard([
+            Row(children: [
+              Text('本地网关服务', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
               const Spacer(),
               Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                width: 7, height: 7,
+                decoration: BoxDecoration(color: provider.isGatewayOnline ? OpenClawTheme.statusGreen : OpenClawTheme.statusGray, shape: BoxShape.circle),
               ),
               const SizedBox(width: 6),
               Text(
-                statusText,
-                style: TextStyle(fontSize: 12, color: statusColor, fontWeight: FontWeight.w500),
+                provider.isGatewayOnline ? '网关在线' : '网关离线',
+                style: TextStyle(fontSize: 12, color: provider.isGatewayOnline ? OpenClawTheme.statusGreen : OpenClawTheme.textTertiary),
               ),
-            ],
-          ),
+            ]),
+            const SizedBox(height: 14),
+            _buildField('监听端口', _gatewayPortController, '18789'),
+            const SizedBox(height: 12),
+            Row(children: [
+              Text('启动时自动开启网关', style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary)),
+              const Spacer(),
+              Switch(value: _autoStartGateway, activeThumbColor: OpenClawTheme.primaryRed, onChanged: (val) => setState(() => _autoStartGateway = val)),
+            ]),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: _handleToggleGateway,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: provider.isGatewayOnline ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary,
+                side: BorderSide(color: provider.isGatewayOnline ? OpenClawTheme.primaryRed : OpenClawTheme.border),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: Text(provider.isGatewayOnline ? '停止网关' : '启动网关'),
+            ),
+          ]),
           const SizedBox(height: 16),
-          _buildTextField(
-            label: '本地监听端口',
-            controller: _gatewayPortController,
-            hint: '18789',
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              '启动应用时自动开启本地网关',
-              style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary),
+          // 大模型配置
+          _buildCard([
+            Text('上游大语言模型', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            const SizedBox(height: 14),
+            _buildField('API Base URL', _apiBaseUrlController, 'https://api.openai.com/v1'),
+            const SizedBox(height: 12),
+            _buildField('API Key', _apiKeyController, 'sk-...', isPassword: true),
+            const SizedBox(height: 12),
+            _buildField('模型名称', _modelNameController, 'gpt-4o-mini'),
+          ]),
+          const SizedBox(height: 16),
+          // 通用配置
+          _buildCard([
+            Text('通用配置', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            const SizedBox(height: 14),
+            _buildField('附加插件扫描目录', _customSkillsPathController, '可选绝对路径'),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: Text('关闭窗口时最小化到托盘', style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary))),
+              Switch(value: _minimizeToTray, activeThumbColor: OpenClawTheme.primaryRed, onChanged: (val) => setState(() => _minimizeToTray = val)),
+            ]),
+          ]),
+          const SizedBox(height: 24),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            ElevatedButton(
+              onPressed: _handleSave,
+              style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              child: const Text('保存配置', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             ),
-            value: _autoStartGateway,
-            activeThumbColor: OpenClawTheme.primaryRed,
-            onChanged: (val) {
-              setState(() => _autoStartGateway = val);
-            },
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: _handleToggleGateway,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: isOnline ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary,
-              side: BorderSide(
-                color: isOnline ? OpenClawTheme.primaryRed : OpenClawTheme.border,
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            ),
-            child: Text(isOnline ? '停止网关' : '立即启动网关'),
-          ),
+          ]),
         ],
       ),
     );
   }
 
-  /// 上游大模型服务配置卡片
-  Widget _buildUpstreamModelSection() {
+  Widget _themeOption(String label, String value) {
+    final sel = _themeMode == value;
+    return InkWell(
+      onTap: () => setState(() => _themeMode = value),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 120,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: sel ? OpenClawTheme.primaryRedLight : OpenClawTheme.background,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: sel ? OpenClawTheme.primaryRed : OpenClawTheme.border, width: sel ? 2 : 1),
+        ),
+        alignment: Alignment.center,
+        child: Column(children: [
+          Icon(value == 'light' ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 22, color: sel ? OpenClawTheme.primaryRed : OpenClawTheme.textSecondary),
+          const SizedBox(height: 6),
+          Text(label, style: TextStyle(fontSize: 13, fontWeight: sel ? FontWeight.bold : FontWeight.normal, color: sel ? OpenClawTheme.primaryRed : OpenClawTheme.textPrimary)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildCard(List<Widget> children) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: OpenClawTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '上游大语言模型接入',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: OpenClawTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            label: 'API Base URL',
-            controller: _apiBaseUrlController,
-            hint: 'https://api.openai.com/v1',
-          ),
-          const SizedBox(height: 14),
-          _buildTextField(
-            label: 'API Key',
-            controller: _apiKeyController,
-            hint: 'sk-...',
-            isPassword: true,
-          ),
-          const SizedBox(height: 14),
-          _buildTextField(
-            label: '模型名称',
-            controller: _modelNameController,
-            hint: 'gpt-4o-mini',
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: OpenClawTheme.cardBackground, borderRadius: BorderRadius.circular(12), border: Border.all(color: OpenClawTheme.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
   }
 
-  /// 系统与托盘常驻配置卡片
-  Widget _buildCommonSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: OpenClawTheme.border),
+  Widget _buildField(String label, TextEditingController controller, String hint, {bool isPassword = false}) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary)),
+      const SizedBox(height: 6),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(color: OpenClawTheme.inputBackground, borderRadius: BorderRadius.circular(8), border: Border.all(color: OpenClawTheme.border)),
+        child: TextField(
+          controller: controller,
+          obscureText: isPassword,
+          style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
+          decoration: InputDecoration(hintText: hint, hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13), border: InputBorder.none),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '系统与常驻运行配置',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: OpenClawTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            label: '附加插件扫描目录 (可选绝对路径)',
-            controller: _customSkillsPathController,
-            hint: '默认扫描 ~/.agenthub/skills 与工程 skills/ 目录',
-          ),
-          const SizedBox(height: 12),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              '关闭主窗口时最小化到系统托盘 (保持后台常驻运行)',
-              style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary),
-            ),
-            value: _minimizeToTray,
-            activeColor: OpenClawTheme.primaryRed,
-            onChanged: (val) {
-              if (val != null) {
-                setState(() => _minimizeToTray = val);
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 输入框封装
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    bool isPassword = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: OpenClawTheme.background,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: OpenClawTheme.border),
-          ),
-          child: TextField(
-            controller: controller,
-            obscureText: isPassword,
-            style: const TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),
-              border: InputBorder.none,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 底部保存按钮
-  Widget _buildActionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        ElevatedButton(
-          onPressed: _handleSave,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: OpenClawTheme.primaryRed,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          child: const Text('保存配置', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-        ),
-      ],
-    );
+    ]);
   }
 }
