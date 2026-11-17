@@ -244,8 +244,6 @@ class _HomeViewState extends State<HomeView> with WindowListener {
         children: [
           _buildSidebarHeader(provider),
           const SizedBox(height: 8),
-          // 导航项：对话、定时任务、插件、设置（已移除"主页"）
-          _buildNavItem(0, Icons.chat_outlined, '对话', provider),
           _buildNavItem(1, Icons.alarm_outlined, '定时任务', provider, badgeCount: provider.tasks.where((t) => t.isEnabled).length),
           _buildNavItem(2, Icons.extension_outlined, '插件', provider, badgeCount: provider.skills.length),
           _buildNavItem(3, Icons.settings_outlined, '设置', provider),
@@ -388,7 +386,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                   itemCount: sessions.length,
                   itemBuilder: (context, index) {
                     final session = sessions[index];
-                    final isActive = session.id == provider.activeSessionId;
+                    final isActive = session.id == provider.activeSessionId && provider.currentTabIndex == 0;
 
                     return InkWell(
                       onTap: () {
