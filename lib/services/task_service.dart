@@ -71,37 +71,37 @@ class TaskService {
     return now.add(const Duration(hours: 1));
   }
 
-  /// 预设 OpenClaw 标准后台定时任务
+  /// 预设标准后台定时任务
   List<ScheduledTaskModel> _createDefaultTasks() {
     final now = DateTime.now();
     return [
       ScheduledTaskModel(
-        id: 'task_heartbeat',
-        name: 'heartbeat-main',
-        schedule: 'Every 30分钟',
-        lastRun: now.subtract(const Duration(minutes: 26)),
-        nextRun: now.add(const Duration(minutes: 4)),
+        id: 'task_gateway_check',
+        name: '网关检测',
+        schedule: '0 */30 * * * ?',
+        lastRun: now.subtract(const Duration(minutes: 15)),
+        nextRun: now.add(const Duration(minutes: 15)),
         isEnabled: true,
-        command: 'ping_gateway',
+        command: 'curl -s http://127.0.0.1:18789/health',
       ),
       ScheduledTaskModel(
-        id: 'task_memory',
-        name: 'Memory Dreaming Promotion',
-        schedule: 'Cron 0 3 * * *',
-        tag: 'managed-by=memory-core.short-term-pr...',
+        id: 'task_skill_scan',
+        name: '插件扫描',
+        schedule: '0 0 */1 * * ?',
+        tag: '自动同步',
         lastRun: null,
-        nextRun: now.add(const Duration(hours: 9)),
+        nextRun: now.add(const Duration(hours: 1)),
         isEnabled: true,
-        command: 'promote_memory',
+        command: 'agenthub skills list',
       ),
       ScheduledTaskModel(
-        id: 'task_skill_review',
-        name: 'skill-collection-review-main',
-        schedule: 'Every 7天',
+        id: 'task_system_check',
+        name: '系统检测',
+        schedule: '0 0 3 * * ?',
         lastRun: null,
-        nextRun: now.add(const Duration(days: 6)),
+        nextRun: now.add(const Duration(hours: 6)),
         isEnabled: true,
-        command: 'review_skills',
+        command: 'systeminfo',
       ),
     ];
   }

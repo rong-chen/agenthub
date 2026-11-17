@@ -25,7 +25,7 @@ class AgentService {
     required String userPrompt,
   }) async {
     if (config.apiBaseUrl.trim().isEmpty || config.apiKey.trim().isEmpty) {
-      return '请先在系统设置中配置大模型 API 接口地址与 API Key';
+      return '请先在设置中配置服务地址与访问密钥';
     }
 
     final base = config.apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '');
@@ -64,7 +64,7 @@ class AgentService {
       );
 
       if (response.statusCode != 200) {
-        return '上游模型接口响应异常，状态码: ${response.statusCode}';
+        return '服务响应异常，状态码: ${response.statusCode}';
       }
 
       final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -79,9 +79,9 @@ class AgentService {
         }
       }
 
-      return '未能解析上游接口返回的内容';
-    } catch (e) {
-      return '上游模型接口请求失败: $e';
+      return '无法解析服务返回内容';
+    } catch (_) {
+      return '网络请求失败';
     }
   }
 
@@ -103,7 +103,7 @@ class AgentService {
     if (config.apiBaseUrl.trim().isEmpty || config.apiKey.trim().isEmpty) {
       yield {
         'type': 'error',
-        'error': '请先在系统设置中配置大模型 API 接口地址与 API Key',
+        'error': '请先在设置中配置服务地址与访问密钥',
       };
       return;
     }
@@ -128,7 +128,7 @@ class AgentService {
       'content': userPrompt,
     });
 
-    yield {'type': 'status', 'text': '正在向大模型发起流式请求...'};
+    yield {'type': 'status', 'text': '正在请求回复...'};
 
     final request = http.Request('POST', uri);
     request.headers['Content-Type'] = 'application/json';
@@ -143,20 +143,20 @@ class AgentService {
     try {
       final client = http.Client();
       streamedResponse = await client.send(request);
-    } catch (e) {
-      yield {'type': 'error', 'error': '上游模型网络请求失败: $e'};
+    } catch (_) {
+      yield {'type': 'error', 'error': '网络连接失败'};
       return;
     }
 
     if (streamedResponse.statusCode != 200) {
       yield {
         'type': 'error',
-        'error': '上游模型响应异常，状态码: ${streamedResponse.statusCode}',
+        'error': '服务响应异常，状态码: ${streamedResponse.statusCode}',
       };
       return;
     }
 
-    yield {'type': 'status', 'text': '大模型开始输出回复...'};
+    yield {'type': 'status', 'text': '正在输出回复...'};
 
     final fullContentBuffer = StringBuffer();
 
@@ -199,11 +199,19 @@ class AgentService {
     };
   }
 
-  /// 构建注入了 AgentHub 本地技能的系统提示词
+  /// 构建注入了本地技能与定时能力的系统提示词
   String _buildSystemPromptWithSkills(List<SkillModel> activeSkills) {
     final buffer = StringBuffer();
-    buffer.writeln('你是由 AgentHub 驱动的桌面后台智能助手。');
+    buffer.writeln('你是智能桌面助手。');
     buffer.writeln('你可以参考或调用系统所配置的技能来完成任务。');
+    buffer.writeln('你可以为用户创建和注册定时任务。如果需要为用户注册定时任务，请在回复末尾附带如下代码块：');
+    buffer.writeln('```task');
+    buffer.writeln('名称: 任务名称');
+    buffer.writeln('周期: */30 * * * *');
+    buffer.writeln('类型: gateway_check');
+    buffer.writeln('命令: ');
+    buffer.writeln('```');
+    buffer.writeln('其中类型可选：gateway_check（网关检测）、skills_reload（插件扫描）、shell_cmd（系统命令）。');
 
     if (activeSkills.isEmpty) {
       return buffer.toString();

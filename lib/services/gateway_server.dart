@@ -45,7 +45,7 @@ class GatewayServer {
     if (_isRunning) {
       return GatewayStartResult(
         isSuccess: true,
-        message: '网关已在运行 (http://127.0.0.1:$_port)',
+        message: '网关已在运行: 127.0.0.1:$_port',
       );
     }
 
@@ -70,7 +70,7 @@ class GatewayServer {
 
       return GatewayStartResult(
         isSuccess: true,
-        message: '网关已启动 (http://127.0.0.1:$_port)',
+        message: '网关已启动: 127.0.0.1:$_port',
       );
     } on SocketException catch (e) {
       _isRunning = false;
@@ -140,7 +140,7 @@ class GatewayServer {
     }
 
     if (request.method == 'GET' && path == '/v1/models') {
-      await _handleModels(response);
+      await _handleModels(response, getConfig());
       return;
     }
 
@@ -275,17 +275,26 @@ class GatewayServer {
   }
 
   /// 模型列表接口响应
-  Future<void> _handleModels(HttpResponse response) async {
+  Future<void> _handleModels(HttpResponse response, GatewayConfig config) async {
+    final modelName = config.modelName.isNotEmpty ? config.modelName : 'agenthub-default';
+    final models = [
+      {
+        'id': modelName,
+        'object': 'model',
+        'owned_by': 'agenthub',
+      }
+    ];
+    if (modelName != 'agenthub-default') {
+      models.add({
+        'id': 'agenthub-default',
+        'object': 'model',
+        'owned_by': 'agenthub',
+      });
+    }
     response.statusCode = HttpStatus.ok;
     response.write(jsonEncode({
       'object': 'list',
-      'data': [
-        {
-          'id': 'agenthub-default',
-          'object': 'model',
-          'owned_by': 'agenthub',
-        }
-      ],
+      'data': models,
     }));
     await response.close();
   }

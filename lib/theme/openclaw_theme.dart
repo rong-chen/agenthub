@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// OpenClaw 风格全局配色与视觉主题规范（支持暖纸明亮与 VS Code 暗黑双主题）
+/// 全局配色与视觉主题规范（暖纸明亮 / VS Code 暗黑双主题）
 class OpenClawTheme {
   // 当前主题模式标识
   static bool isDark = false;
@@ -9,9 +9,10 @@ class OpenClawTheme {
   static Color get background => isDark ? const Color(0xFF181818) : const Color(0xFFF9F8F5);
   static Color get sidebarBackground => isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF2F0EB);
   static Color get cardBackground => isDark ? const Color(0xFF252526) : Colors.white;
-  static Color get headerBackground => isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF9F8F5);
+  // 顶栏与内容区同色，视觉统一
+  static Color get headerBackground => background;
 
-  // 品牌色调（赤陶红 / 砖红）
+  // 品牌色调
   static const Color primaryRed = Color(0xFFBA3824);
   static const Color primaryRedHover = Color(0xFFA5301E);
   static Color get primaryRedLight => isDark ? const Color(0xFF3B2320) : const Color(0xFFFCEEE9);
@@ -35,24 +36,67 @@ class OpenClawTheme {
 
   /// 构建全局 ThemeData
   static ThemeData buildTheme(bool dark) {
-    isDark = dark;
+    final bg = dark ? const Color(0xFF181818) : const Color(0xFFF9F8F5);
+    final cardBg = dark ? const Color(0xFF252526) : Colors.white;
+    final txtPrimary = dark ? const Color(0xFFCCCCCC) : const Color(0xFF22201D);
+    final txtTertiary = dark ? const Color(0xFF6E6E6E) : const Color(0xFF9E9A93);
+    final bdr = dark ? const Color(0xFF333333) : const Color(0xFFE8E5DD);
+    final div = dark ? const Color(0xFF282828) : const Color(0xFFEFECE6);
+    final inputBg = dark ? const Color(0xFF2A2A2A) : Colors.white;
+
+    final colorScheme = dark
+        ? const ColorScheme.dark(
+            primary: primaryRed,
+            surface: Color(0xFF252526),
+            onSurface: Color(0xFFCCCCCC),
+          )
+        : const ColorScheme.light(
+            primary: primaryRed,
+            surface: Colors.white,
+            onSurface: Color(0xFF22201D),
+          );
+
     return ThemeData(
       brightness: dark ? Brightness.dark : Brightness.light,
-      scaffoldBackgroundColor: background,
+      scaffoldBackgroundColor: bg,
       primaryColor: primaryRed,
-      colorScheme: dark
-          ? const ColorScheme.dark(
-              primary: primaryRed,
-              surface: Color(0xFF252526),
-              onSurface: Color(0xFFCCCCCC),
-            )
-          : const ColorScheme.light(
-              primary: primaryRed,
-              surface: Colors.white,
-              onSurface: Color(0xFF22201D),
-            ),
-      dividerColor: divider,
+      colorScheme: colorScheme,
+      dividerColor: div,
       fontFamily: 'PingFang SC',
+      // 顶栏主题：与背景一致
+      appBarTheme: AppBarTheme(
+        backgroundColor: bg,
+        foregroundColor: txtPrimary,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+      // 输入框装饰主题
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: inputBg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: bdr),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: bdr),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: primaryRed),
+        ),
+        hintStyle: TextStyle(color: txtTertiary, fontSize: 13),
+      ),
+      // 卡片主题
+      cardTheme: CardThemeData(
+        color: cardBg,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: bdr),
+        ),
+      ),
     );
   }
 }

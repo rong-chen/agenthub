@@ -36,7 +36,7 @@ class _SkillsViewState extends State<SkillsView> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('输入 Git 仓库地址或本地路径', style: TextStyle(color: OpenClawTheme.textSecondary, fontSize: 13)),
+                Text('安装来源', style: TextStyle(color: OpenClawTheme.textSecondary, fontSize: 13)),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -44,7 +44,7 @@ class _SkillsViewState extends State<SkillsView> {
                   child: TextField(
                     controller: textController,
                     style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
-                    decoration: InputDecoration(hintText: 'https://github.com/owner/skill.git', hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13), border: InputBorder.none),
+                    decoration: const InputDecoration(border: InputBorder.none),
                   ),
                 ),
               ],
@@ -58,12 +58,74 @@ class _SkillsViewState extends State<SkillsView> {
                 if (source.isEmpty) return;
                 Navigator.of(ctx).pop();
                 final provider = context.read<AppStateProvider>();
-                final result = await provider.installSkill(source);
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result), duration: const Duration(seconds: 3)));
+                await provider.installSkill(source);
               },
               style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
               child: const Text('安装'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 显示插件详情
+  void _showSkillDetail(BuildContext context, SkillModel skill) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: OpenClawTheme.cardBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: OpenClawTheme.border)),
+          title: Text(skill.name, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (skill.description.isNotEmpty) ...[
+                    Text(skill.description, style: TextStyle(color: OpenClawTheme.textSecondary, fontSize: 13, height: 1.5)),
+                    const SizedBox(height: 12),
+                  ],
+                  Text(skill.instructions.isNotEmpty ? skill.instructions : '无说明内容', style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13, height: 1.5)),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('关闭', style: TextStyle(color: OpenClawTheme.textSecondary)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 运行插件
+  Future<void> _handleRunSkill(BuildContext context, AppStateProvider provider, SkillModel skill) async {
+    final result = await provider.executeSkill(skill);
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: OpenClawTheme.cardBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: OpenClawTheme.border)),
+          title: Text(skill.name, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Text(result, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13, height: 1.5)),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('关闭', style: TextStyle(color: OpenClawTheme.textSecondary)),
             ),
           ],
         );
@@ -90,7 +152,7 @@ class _SkillsViewState extends State<SkillsView> {
           children: [
             Text('插件', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: OpenClawTheme.titleRed)),
             const SizedBox(height: 8),
-            Text('已加载 ${allSkills.length} 项  已激活 ${allSkills.where((s) => s.isEnabled).length} 项  目录: ~/.agenthub/skills', style: TextStyle(fontSize: 13, color: OpenClawTheme.textSecondary)),
+            Text('已加载 ${allSkills.length} 项  已激活 ${allSkills.where((s) => s.isEnabled).length} 项', style: TextStyle(fontSize: 13, color: OpenClawTheme.textSecondary)),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -100,7 +162,7 @@ class _SkillsViewState extends State<SkillsView> {
                 ElevatedButton.icon(
                   onPressed: () => _showInstallDialog(context),
                   icon: const Icon(Icons.add, size: 16),
-                  label: const Text('安装插件'),
+                  label: const Text('安装'),
                   style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                 ),
               ],
@@ -113,7 +175,7 @@ class _SkillsViewState extends State<SkillsView> {
                 controller: _searchController,
                 onChanged: (_) => setState(() {}),
                 style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary),
-                decoration: InputDecoration(hintText: '搜索插件...', hintStyle: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary), prefixIcon: Icon(Icons.search, size: 18, color: OpenClawTheme.textTertiary), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 9)),
+                decoration: InputDecoration(hintStyle: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary), prefixIcon: Icon(Icons.search, size: 18, color: OpenClawTheme.textTertiary), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 9)),
               ),
             ),
             const SizedBox(height: 16),
@@ -128,7 +190,7 @@ class _SkillsViewState extends State<SkillsView> {
                       Expanded(flex: 4, child: Text('名称', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
                       Expanded(flex: 2, child: Text('版本', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
                       Expanded(flex: 3, child: Text('依赖', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-                      SizedBox(width: 80, child: Text('操作', textAlign: TextAlign.end, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+                      SizedBox(width: 120, child: Text('操作', textAlign: TextAlign.end, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
                     ]),
                   ),
                   if (filtered.isEmpty)
@@ -156,32 +218,40 @@ class _SkillsViewState extends State<SkillsView> {
       child: Row(children: [
         Expanded(
           flex: 4,
-          child: Row(children: [
-            Container(width: 7, height: 7, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: skill.isEnabled ? OpenClawTheme.statusGreen : OpenClawTheme.statusGray, shape: BoxShape.circle)),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(skill.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: OpenClawTheme.textPrimary), overflow: TextOverflow.ellipsis),
-                if (skill.description.isNotEmpty)
-                  Text(skill.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary)),
-              ]),
-            ),
-          ]),
+          child: InkWell(
+            onTap: () => _showSkillDetail(context, skill),
+            child: Row(children: [
+              Container(width: 7, height: 7, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: skill.isEnabled ? OpenClawTheme.statusGreen : OpenClawTheme.statusGray, shape: BoxShape.circle)),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(skill.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: OpenClawTheme.textPrimary), overflow: TextOverflow.ellipsis),
+                  if (skill.description.isNotEmpty)
+                    Text(skill.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary)),
+                ]),
+              ),
+            ]),
+          ),
         ),
         Expanded(flex: 2, child: Text('v${skill.version}', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
         Expanded(flex: 3, child: Text(skill.requiredBins.isNotEmpty ? skill.requiredBins.join(', ') : '-', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary), overflow: TextOverflow.ellipsis)),
         SizedBox(
-          width: 80,
+          width: 120,
           child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            SizedBox(width: 36, height: 20, child: FittedBox(child: Switch(value: skill.isEnabled, activeThumbColor: OpenClawTheme.primaryRed, onChanged: (val) => provider.toggleSkill(skill, val)))),
+            IconButton(
+              icon: Icon(Icons.play_arrow_outlined, size: 18, color: OpenClawTheme.textSecondary),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _handleRunSkill(context, provider, skill),
+            ),
+            const SizedBox(width: 6),
+            SizedBox(width: 36, height: 20, child: FittedBox(child: Switch(value: skill.isEnabled, activeColor: OpenClawTheme.primaryRed, onChanged: (val) => provider.toggleSkill(skill, val)))),
             const SizedBox(width: 6),
             IconButton(
               icon: Icon(Icons.delete_outline, size: 16, color: OpenClawTheme.primaryRed),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () async {
-                final ok = await provider.uninstallSkill(skill.name);
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? '已卸载 ${skill.name}' : '无法卸载'), duration: const Duration(seconds: 2)));
+                await provider.uninstallSkill(skill.name);
               },
             ),
           ]),

@@ -22,7 +22,7 @@ class CronSchedulerService {
       if (trimmed.split(RegExp(r'\s+')).length == 5) {
         return Schedule.parse(trimmed);
       }
-      // 常见中文/周期表述转换为标准 Cron
+      // 周期表述转换为标准 Cron
       if (trimmed.contains('1分钟') || trimmed.contains('1m')) {
         return Schedule.parse('*/1 * * * *');
       }
@@ -42,9 +42,39 @@ class CronSchedulerService {
         return Schedule.parse('0 0 * * *');
       }
     } catch (_) {
-      // 表达式不合法时返回 null
+      // 格式异常保护
     }
     return null;
+  }
+
+  /// 计算下一次预计执行时间
+  DateTime calculateNextRun(String scheduleStr, [DateTime? from]) {
+    final base = from ?? DateTime.now();
+    final trimmed = scheduleStr.trim();
+    if (trimmed.contains('1m') || trimmed.contains('1分钟') || trimmed == '* * * * *' || trimmed == '*/1 * * * *') {
+      return base.add(const Duration(minutes: 1));
+    }
+    if (trimmed.contains('5m') || trimmed.contains('5分钟') || trimmed == '*/5 * * * *') {
+      return base.add(const Duration(minutes: 5));
+    }
+    if (trimmed.contains('10m') || trimmed.contains('10分钟') || trimmed == '*/10 * * * *') {
+      return base.add(const Duration(minutes: 10));
+    }
+    if (trimmed.contains('30m') || trimmed.contains('30分钟') || trimmed == '*/30 * * * *') {
+      return base.add(const Duration(minutes: 30));
+    }
+    if (trimmed.contains('1h') || trimmed.contains('1小时') || trimmed == '0 * * * *') {
+      return base.add(const Duration(hours: 1));
+    }
+    if (trimmed.contains('1d') || trimmed.contains('每天') || trimmed == '0 0 * * *') {
+      return DateTime(base.year, base.month, base.day + 1, 0, 0);
+    }
+    final match = RegExp(r'\*/(\d+)\s+\*\s+\*\s+\*\s+\*').firstMatch(trimmed);
+    if (match != null) {
+      final mins = int.tryParse(match.group(1) ?? '30') ?? 30;
+      return base.add(Duration(minutes: mins));
+    }
+    return base.add(const Duration(minutes: 30));
   }
 
   /// 同步并更新全部激活的任务调度器
@@ -99,40 +129,51 @@ class CronSchedulerService {
 
     try {
       if (task.actionType == 'gateway_check') {
-        // 真实网关健康心跳检测
+        // 检测网关连通状态
         final url = Uri.parse('http://127.0.0.1:$gatewayPort/health');
         final res = await http.get(url).timeout(const Duration(seconds: 4));
         isSuccess = res.statusCode == 200;
-        output = '网关 HTTP 响应状态: ${res.statusCode}, 内容: ${res.body}';
+        output = isSuccess ? '服务正常' : '未响应';
       } else if (task.actionType == 'skills_reload') {
-        // 真实重新扫描并加载技能
+        // 重新扫描并更新插件
         await onSkillsReload();
         isSuccess = true;
-        output = '本地技能目录已重新扫描并更新完毕';
+        output = '插件已更新';
       } else if (task.actionType == 'shell_cmd') {
-        // 真实执行本地命令
+        // 执行系统命令
         final cmd = task.command.trim();
         if (cmd.isNotEmpty) {
-          final result = await Process.run(
-            'bash',
-            ['-c', cmd],
-            runInShell: true,
-          ).timeout(const Duration(seconds: 15));
+          final ProcessResult result;
+          if (Platform.isWindows) {
+            result = await Process.run(
+              'cmd.exe',
+              ['/c', cmd],
+              runInShell: true,
+            ).timeout(const Duration(seconds: 15));
+          } else {
+            result = await Process.run(
+              'sh',
+              ['-c', cmd],
+              runInShell: true,
+            ).timeout(const Duration(seconds: 15));
+          }
           isSuccess = result.exitCode == 0;
+          final outText = result.stdout.toString().trim();
+          final errText = result.stderr.toString().trim();
           output = isSuccess
-              ? result.stdout.toString().trim()
-              : '执行报错: ${result.stderr.toString().trim()}';
+              ? (outText.isNotEmpty ? outText : '执行完成')
+              : (errText.isNotEmpty ? errText : '执行未完成');
         } else {
-          isSuccess = true;
-          output = '未指定具体 shell 指令';
+          isSuccess = false;
+          output = '未设置执行内容';
         }
       } else {
         isSuccess = true;
-        output = '默认周期性巡检完成';
+        output = '执行完成';
       }
-    } catch (e) {
+    } catch (_) {
       isSuccess = false;
-      output = '执行发生异常: $e';
+      output = '执行未完成';
     }
 
     final durationMs = DateTime.now().difference(startTime).inMilliseconds;
@@ -146,8 +187,9 @@ class CronSchedulerService {
       output: output,
     );
 
-    // 更新任务最近运行状态并持久化至 SQLite
+    // 更新任务运行时间与预计下次执行时间
     task.lastRun = startTime;
+    task.nextRun = calculateNextRun(task.schedule, startTime);
     task.lastStatus = isSuccess ? 'success' : 'error';
     await DatabaseService.instance.saveTask(task);
     await DatabaseService.instance.insertTaskLog(log);

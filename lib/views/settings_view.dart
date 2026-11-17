@@ -53,8 +53,6 @@ class _SettingsViewState extends State<SettingsView> {
     } else {
       await provider.startLocalGateway();
     }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.gatewayStatusMessage), duration: const Duration(seconds: 2)));
   }
 
   Future<void> _handleSave() async {
@@ -71,8 +69,6 @@ class _SettingsViewState extends State<SettingsView> {
       themeMode: _themeMode,
     );
     await provider.updateConfig(newConfig);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('配置已保存'), duration: Duration(seconds: 2)));
   }
 
   @override
@@ -88,7 +84,7 @@ class _SettingsViewState extends State<SettingsView> {
           const SizedBox(height: 20),
           // 主题设置
           _buildCard([
-            Text('外观主题', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            Text('主题', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
             const SizedBox(height: 14),
             Row(
               children: [
@@ -102,7 +98,7 @@ class _SettingsViewState extends State<SettingsView> {
           // 网关配置
           _buildCard([
             Row(children: [
-              Text('本地网关服务', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+              Text('网关', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
               const Spacer(),
               Container(
                 width: 7, height: 7,
@@ -110,17 +106,17 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(width: 6),
               Text(
-                provider.isGatewayOnline ? '网关在线' : '网关离线',
+                provider.isGatewayOnline ? '在线' : '离线',
                 style: TextStyle(fontSize: 12, color: provider.isGatewayOnline ? OpenClawTheme.statusGreen : OpenClawTheme.textTertiary),
               ),
             ]),
             const SizedBox(height: 14),
-            _buildField('监听端口', _gatewayPortController, '18789'),
+            _buildField('端口', _gatewayPortController, ''),
             const SizedBox(height: 12),
             Row(children: [
-              Text('启动时自动开启网关', style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary)),
+              Text('自动启动', style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary)),
               const Spacer(),
-              Switch(value: _autoStartGateway, activeThumbColor: OpenClawTheme.primaryRed, onChanged: (val) => setState(() => _autoStartGateway = val)),
+              Switch(value: _autoStartGateway, activeColor: OpenClawTheme.primaryRed, onChanged: (val) => setState(() => _autoStartGateway = val)),
             ]),
             const SizedBox(height: 8),
             OutlinedButton(
@@ -131,30 +127,30 @@ class _SettingsViewState extends State<SettingsView> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              child: Text(provider.isGatewayOnline ? '停止网关' : '启动网关'),
+              child: Text(provider.isGatewayOnline ? '停止' : '启动'),
             ),
           ]),
           const SizedBox(height: 16),
           // 大模型配置
           _buildCard([
-            Text('上游大语言模型', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            Text('模型服务', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
             const SizedBox(height: 14),
-            _buildField('API Base URL', _apiBaseUrlController, 'https://api.openai.com/v1'),
+            _buildField('服务地址', _apiBaseUrlController, ''),
             const SizedBox(height: 12),
-            _buildField('API Key', _apiKeyController, 'sk-...', isPassword: true),
+            _buildField('访问密钥', _apiKeyController, '', isPassword: true),
             const SizedBox(height: 12),
-            _buildField('模型名称', _modelNameController, 'gpt-4o-mini'),
+            _buildField('模型', _modelNameController, ''),
           ]),
           const SizedBox(height: 16),
           // 通用配置
           _buildCard([
-            Text('通用配置', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
+            Text('常规', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary)),
             const SizedBox(height: 14),
-            _buildField('附加插件扫描目录', _customSkillsPathController, '可选绝对路径'),
+            _buildField('插件目录', _customSkillsPathController, ''),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: Text('关闭窗口时最小化到托盘', style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary))),
-              Switch(value: _minimizeToTray, activeThumbColor: OpenClawTheme.primaryRed, onChanged: (val) => setState(() => _minimizeToTray = val)),
+              Expanded(child: Text('最小化到托盘', style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary))),
+              Switch(value: _minimizeToTray, activeColor: OpenClawTheme.primaryRed, onChanged: (val) => setState(() => _minimizeToTray = val)),
             ]),
           ]),
           const SizedBox(height: 24),
@@ -162,7 +158,7 @@ class _SettingsViewState extends State<SettingsView> {
             ElevatedButton(
               onPressed: _handleSave,
               style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-              child: const Text('保存配置', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              child: const Text('保存', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             ),
           ]),
         ],
@@ -173,7 +169,15 @@ class _SettingsViewState extends State<SettingsView> {
   Widget _themeOption(String label, String value) {
     final sel = _themeMode == value;
     return InkWell(
-      onTap: () => setState(() => _themeMode = value),
+      onTap: () {
+        setState(() => _themeMode = value);
+        final provider = context.read<AppStateProvider>();
+        if (provider.config.themeMode != value) {
+          final newConfig = provider.config;
+          newConfig.themeMode = value;
+          provider.updateConfig(newConfig);
+        }
+      },
       borderRadius: BorderRadius.circular(10),
       child: Container(
         width: 120,

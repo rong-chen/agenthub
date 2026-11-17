@@ -1,4 +1,4 @@
-/// AgentHub 本地网关与核心配置模型
+/// 本地网关与核心配置模型
 class GatewayConfig {
   int gatewayPort;
   bool autoStartGateway;

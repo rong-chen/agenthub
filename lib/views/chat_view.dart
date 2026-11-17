@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_message_model.dart';
@@ -16,11 +17,13 @@ class ChatView extends StatefulWidget {
 class _ChatViewState extends State<ChatView> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _inputFocusNode = FocusNode();
 
   @override
   void dispose() {
     _inputController.dispose();
     _scrollController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -62,10 +65,11 @@ class _ChatViewState extends State<ChatView> {
       color: OpenClawTheme.background,
       child: Column(
         children: [
-          _buildHeaderRow(provider),
-          Divider(height: 1, thickness: 1, color: OpenClawTheme.divider),
+          // 移除了 _buildHeaderRow，直接显示消息区域
           Expanded(
-            child: messages.isEmpty ? _buildEmptyState() : _buildMessageList(messages),
+            child: messages.isEmpty
+                ? const SizedBox.shrink() // 空状态不显示任何提示
+                : _buildMessageList(messages),
           ),
           _buildInputArea(provider),
         ],
@@ -73,59 +77,12 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  /// 页面标题
-  Widget _buildHeaderRow(AppStateProvider provider) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      color: OpenClawTheme.headerBackground,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text('主页', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: OpenClawTheme.titleRed)),
-          ),
-          OutlinedButton(
-            onPressed: () => provider.clearChatHistory(),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: OpenClawTheme.textSecondary,
-              backgroundColor: OpenClawTheme.cardBackground,
-              side: BorderSide(color: OpenClawTheme.border),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            ),
-            child: const Text('清空会话', style: TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 空状态
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: OpenClawTheme.primaryRedLight,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.chat_bubble_outline, size: 24, color: OpenClawTheme.primaryRed),
-          ),
-          const SizedBox(height: 14),
-          Text('有什么可以帮你的?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: OpenClawTheme.textPrimary)),
-          const SizedBox(height: 6),
-          Text('在下方输入框中键入指令开始交互', style: TextStyle(fontSize: 13, color: OpenClawTheme.textSecondary)),
-        ],
-      ),
-    );
-  }
-
   /// 消息列表
   Widget _buildMessageList(List<ChatMessageModel> messages) {
+    // 获取屏幕宽度用于限制气泡宽度
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxBubbleWidth = screenWidth * 0.7;
+
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -141,47 +98,52 @@ class _ChatViewState extends State<ChatView> {
             mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
             children: [
               if (!isUser) ...[
+                // AI 头像：使用 Icons 替代文本 'A'
                 Container(
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(color: OpenClawTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
                   alignment: Alignment.center,
-                  child: Text('A', style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+                  child: Icon(Icons.smart_toy_outlined, size: 18, color: OpenClawTheme.textPrimary),
                 ),
                 const SizedBox(width: 10),
               ],
               Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isUser ? OpenClawTheme.primaryRedLight : OpenClawTheme.cardBackground,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: OpenClawTheme.border),
-                  ),
-                  child: isUser
-                      ? Text(message.content, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.5))
-                      : MarkdownBody(
-                          data: message.content,
-                          styleSheet: MarkdownStyleSheet(
-                            p: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.6),
-                            code: TextStyle(backgroundColor: OpenClawTheme.pillBackground, color: OpenClawTheme.titleRed, fontSize: 12),
-                            codeblockDecoration: BoxDecoration(
-                              color: OpenClawTheme.pillBackground,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: OpenClawTheme.border),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isUser ? OpenClawTheme.primaryRedLight : OpenClawTheme.cardBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: OpenClawTheme.border),
+                    ),
+                    child: isUser
+                        ? Text(message.content, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.5))
+                        : MarkdownBody(
+                            data: message.content,
+                            styleSheet: MarkdownStyleSheet(
+                              p: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, height: 1.6),
+                              code: TextStyle(backgroundColor: OpenClawTheme.pillBackground, color: OpenClawTheme.titleRed, fontSize: 12),
+                              codeblockDecoration: BoxDecoration(
+                                color: OpenClawTheme.pillBackground,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: OpenClawTheme.border),
+                              ),
                             ),
                           ),
-                        ),
+                  ),
                 ),
               ),
               if (isUser) ...[
                 const SizedBox(width: 10),
+                // 用户头像：使用 Icons 替代文本 'U'
                 Container(
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(color: OpenClawTheme.primaryRed, borderRadius: BorderRadius.circular(8)),
                   alignment: Alignment.center,
-                  child: const Text('U', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: const Icon(Icons.person_outlined, size: 18, color: Colors.white),
                 ),
               ],
             ],
@@ -191,7 +153,7 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  /// 底部输入区
+  /// 底部输入区（支持 Enter 发送，Shift+Enter 换行）
   Widget _buildInputArea(AppStateProvider provider) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -207,19 +169,31 @@ class _ChatViewState extends State<ChatView> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: TextField(
-                controller: _inputController,
-                enabled: !provider.isBusy,
-                maxLines: 4,
-                minLines: 1,
-                style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: '输入指令或提问...',
-                  hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              child: Focus(
+                onKeyEvent: (node, event) {
+                  // Enter 发送消息，Shift+Enter 换行
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.enter &&
+                      !HardwareKeyboard.instance.isShiftPressed) {
+                    _handleSend();
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextField(
+                  controller: _inputController,
+                  focusNode: _inputFocusNode,
+                  enabled: !provider.isBusy,
+                  maxLines: 4,
+                  minLines: 1,
+                  style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: '输入内容...',
+                    hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
                 ),
-                onSubmitted: (_) => _handleSend(),
               ),
             ),
             const SizedBox(width: 8),
@@ -245,7 +219,7 @@ class _ChatViewState extends State<ChatView> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              child: Text(provider.isBusy ? '输出中...' : '发送', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              child: Text(provider.isBusy ? '处理中' : '发送', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             ),
           ],
         ),

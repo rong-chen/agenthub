@@ -42,7 +42,7 @@ class _TasksViewState extends State<TasksView> {
 
   void _showCreateTaskDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
-    final scheduleCtrl = TextEditingController(text: '*/30 * * * *');
+    final scheduleCtrl = TextEditingController();
     final commandCtrl = TextEditingController();
     String actionType = 'gateway_check';
 
@@ -53,7 +53,7 @@ class _TasksViewState extends State<TasksView> {
           return AlertDialog(
             backgroundColor: OpenClawTheme.cardBackground,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: OpenClawTheme.border)),
-            title: Text('新建计划任务', style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+            title: Text('新建任务', style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
             content: SizedBox(
               width: 440,
               child: Column(
@@ -62,11 +62,11 @@ class _TasksViewState extends State<TasksView> {
                 children: [
                   _dialogLabel('任务名称'),
                   const SizedBox(height: 6),
-                  _dialogField(nameCtrl, 'heartbeat-check'),
+                  _dialogField(nameCtrl, ''),
                   const SizedBox(height: 14),
-                  _dialogLabel('Cron 表达式'),
+                  _dialogLabel('执行周期'),
                   const SizedBox(height: 6),
-                  _dialogField(scheduleCtrl, '*/30 * * * *'),
+                  _dialogField(scheduleCtrl, ''),
                   const SizedBox(height: 14),
                   _dialogLabel('任务类型'),
                   const SizedBox(height: 6),
@@ -79,17 +79,17 @@ class _TasksViewState extends State<TasksView> {
                     ),
                     style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary),
                     items: const [
-                      DropdownMenuItem(value: 'gateway_check', child: Text('网关健康检测')),
-                      DropdownMenuItem(value: 'skills_reload', child: Text('重新扫描技能')),
-                      DropdownMenuItem(value: 'shell_cmd', child: Text('执行 Shell 命令')),
+                      DropdownMenuItem(value: 'gateway_check', child: Text('网关检测')),
+                      DropdownMenuItem(value: 'skills_reload', child: Text('插件扫描')),
+                      DropdownMenuItem(value: 'shell_cmd', child: Text('系统命令')),
                     ],
                     onChanged: (val) => setDialogState(() => actionType = val ?? 'gateway_check'),
                   ),
                   if (actionType == 'shell_cmd') ...[
                     const SizedBox(height: 14),
-                    _dialogLabel('Shell 命令'),
+                    _dialogLabel('执行内容'),
                     const SizedBox(height: 6),
-                    _dialogField(commandCtrl, 'echo "hello"'),
+                    _dialogField(commandCtrl, ''),
                   ],
                 ],
               ),
@@ -112,11 +112,40 @@ class _TasksViewState extends State<TasksView> {
                   ));
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                child: const Text('创建'),
+                child: const Text('新建'),
               ),
             ],
           );
         });
+      },
+    );
+  }
+
+  /// 显示日志详情
+  void _showLogDetail(BuildContext context, dynamic log) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: OpenClawTheme.cardBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: OpenClawTheme.border)),
+          title: Text(log.taskName, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Text(
+                log.output.toString().trim().isNotEmpty ? log.output.toString() : '无输出内容',
+                style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13, height: 1.5),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('关闭', style: TextStyle(color: OpenClawTheme.textSecondary)),
+            ),
+          ],
+        );
       },
     );
   }
@@ -189,7 +218,7 @@ class _TasksViewState extends State<TasksView> {
         ElevatedButton.icon(
           onPressed: () => _showCreateTaskDialog(context),
           icon: const Icon(Icons.add, size: 16),
-          label: const Text('新建任务'),
+          label: const Text('新建'),
           style: ElevatedButton.styleFrom(backgroundColor: OpenClawTheme.primaryRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
         ),
       ],
@@ -221,7 +250,7 @@ class _TasksViewState extends State<TasksView> {
               controller: _searchController,
               onChanged: (_) => setState(() {}),
               style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary),
-              decoration: InputDecoration(hintText: '搜索计划任务', hintStyle: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary), prefixIcon: Icon(Icons.search, size: 18, color: OpenClawTheme.textTertiary), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 9)),
+              decoration: InputDecoration(hintText: '搜索', hintStyle: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary), prefixIcon: Icon(Icons.search, size: 18, color: OpenClawTheme.textTertiary), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 9)),
             ),
           ),
         ),
@@ -261,10 +290,11 @@ class _TasksViewState extends State<TasksView> {
             decoration: BoxDecoration(border: Border(bottom: BorderSide(color: OpenClawTheme.divider))),
             child: Row(children: [
               Expanded(flex: 3, child: Text('名称', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('计划', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('周期', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
               Expanded(flex: 2, child: Text('类型', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('上次运行', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-              SizedBox(width: 100, child: Text('操作', textAlign: TextAlign.end, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('下次执行', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('上次执行', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+              SizedBox(width: 90, child: Text('操作', textAlign: TextAlign.end, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
             ]),
           ),
           if (tasks.isEmpty)
@@ -284,8 +314,8 @@ class _TasksViewState extends State<TasksView> {
   Widget _buildTaskRow(AppStateProvider provider, ScheduledTaskModel task) {
     final statusLabel = {
       'gateway_check': '网关检测',
-      'skills_reload': '技能扫描',
-      'shell_cmd': 'Shell 命令',
+      'skills_reload': '插件扫描',
+      'shell_cmd': '系统命令',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -298,8 +328,9 @@ class _TasksViewState extends State<TasksView> {
             Expanded(child: Text(task.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: OpenClawTheme.textPrimary), overflow: TextOverflow.ellipsis)),
           ]),
         ),
-        Expanded(flex: 2, child: Text(task.schedule, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary, fontFamily: 'Courier'), overflow: TextOverflow.ellipsis)),
+        Expanded(flex: 2, child: Text(task.schedule, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary), overflow: TextOverflow.ellipsis)),
         Expanded(flex: 2, child: Text(statusLabel[task.actionType] ?? task.actionType, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+        Expanded(flex: 2, child: Text(_formatRelativeTime(task.nextRun), style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary), overflow: TextOverflow.ellipsis)),
         Expanded(
           flex: 2,
           child: Row(children: [
@@ -310,18 +341,18 @@ class _TasksViewState extends State<TasksView> {
           ]),
         ),
         SizedBox(
-          width: 100,
+          width: 90,
           child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             IconButton(icon: Icon(Icons.play_arrow_outlined, size: 18, color: OpenClawTheme.textSecondary), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => provider.triggerTask(task.id)),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             SizedBox(
               width: 36,
               height: 20,
               child: FittedBox(
-                child: Switch(value: task.isEnabled, activeThumbColor: OpenClawTheme.primaryRed, onChanged: (val) => provider.toggleTask(task.id, val)),
+                child: Switch(value: task.isEnabled, activeColor: OpenClawTheme.primaryRed, onChanged: (val) => provider.toggleTask(task.id, val)),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             IconButton(icon: Icon(Icons.delete_outline, size: 16, color: OpenClawTheme.textTertiary), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => provider.removeTask(task.id)),
           ]),
         ),
@@ -349,22 +380,25 @@ class _TasksViewState extends State<TasksView> {
             Container(padding: const EdgeInsets.symmetric(vertical: 40), alignment: Alignment.center, child: Text('暂无运行记录', style: TextStyle(fontSize: 13, color: OpenClawTheme.textTertiary)))
           else
             ...logs.take(50).map((log) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: OpenClawTheme.divider))),
-                child: Row(children: [
-                  Expanded(flex: 3, child: Text(log.taskName, style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary), overflow: TextOverflow.ellipsis)),
-                  Expanded(flex: 3, child: Text(_formatRelativeTime(log.executedAt), style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-                  Expanded(flex: 2, child: Text('${log.durationMs}ms', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
-                  Expanded(
-                    flex: 2,
-                    child: Row(children: [
-                      Container(width: 7, height: 7, decoration: BoxDecoration(color: log.isSuccess ? OpenClawTheme.statusGreen : OpenClawTheme.primaryRed, shape: BoxShape.circle)),
-                      const SizedBox(width: 6),
-                      Text(log.isSuccess ? '成功' : '失败', style: TextStyle(fontSize: 12, color: log.isSuccess ? OpenClawTheme.statusGreen : OpenClawTheme.primaryRed)),
-                    ]),
-                  ),
-                ]),
+              return InkWell(
+                onTap: () => _showLogDetail(context, log),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: OpenClawTheme.divider))),
+                  child: Row(children: [
+                    Expanded(flex: 3, child: Text(log.taskName, style: TextStyle(fontSize: 13, color: OpenClawTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+                    Expanded(flex: 3, child: Text(_formatRelativeTime(log.executedAt), style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+                    Expanded(flex: 2, child: Text('${log.durationMs}ms', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary))),
+                    Expanded(
+                      flex: 2,
+                      child: Row(children: [
+                        Container(width: 7, height: 7, decoration: BoxDecoration(color: log.isSuccess ? OpenClawTheme.statusGreen : OpenClawTheme.primaryRed, shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        Text(log.isSuccess ? '成功' : '失败', style: TextStyle(fontSize: 12, color: log.isSuccess ? OpenClawTheme.statusGreen : OpenClawTheme.primaryRed)),
+                      ]),
+                    ),
+                  ]),
+                ),
               );
             }),
           Container(

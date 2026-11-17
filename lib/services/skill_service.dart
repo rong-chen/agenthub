@@ -108,7 +108,14 @@ class SkillService {
     final checker = Platform.isWindows ? 'where' : 'which';
     try {
       final result = await Process.run(checker, [binName]);
-      return result.exitCode == 0;
+      if (result.exitCode == 0) {
+        return true;
+      }
+      // Windows 环境下系统信息命令兼容处理
+      if (Platform.isWindows && binName == 'uname') {
+        return true;
+      }
+      return false;
     } catch (_) {
       return false;
     }
@@ -231,6 +238,82 @@ class SkillService {
     }
   }
 
+  /// 执行技能
+  Future<String> runSkill(SkillModel skill, [String? customCommand]) async {
+    try {
+      final String cmd;
+      if (customCommand != null && customCommand.trim().isNotEmpty) {
+        cmd = customCommand.trim();
+      } else if (skill.name == 'system_info') {
+        cmd = Platform.isWindows
+            ? 'powershell -NoProfile -Command "Get-CimInstance Win32_OperatingSystem | Select-Object Caption, OSArchitecture, Version | Format-List"'
+            : 'uname -a';
+      } else {
+        // 从说明中提取首个命令，或使用默认命令
+        final match = RegExp(r'`([^`]+)`').firstMatch(skill.instructions);
+        cmd = match != null ? match.group(1)!.trim() : 'echo "ok"';
+      }
+
+      final ProcessResult result;
+      if (Platform.isWindows) {
+        result = await Process.run(
+          'cmd.exe',
+          ['/c', cmd],
+          workingDirectory: skill.directoryPath,
+          environment: Platform.environment,
+        );
+      } else {
+        result = await Process.run(
+          'sh',
+          ['-c', cmd],
+          workingDirectory: skill.directoryPath,
+          environment: Platform.environment,
+        );
+      }
+
+      final stdoutText = result.stdout.toString().trim();
+      final stderrText = result.stderr.toString().trim();
+
+      if (result.exitCode != 0) {
+        return stderrText.isNotEmpty ? stderrText : '执行未完成';
+      }
+
+      return stdoutText.isNotEmpty ? stdoutText : '执行完成';
+    } catch (_) {
+      return '执行未完成';
+    }
+  }
+
+  /// 创建新本地插件
+  Future<bool> createSkill({
+    required String name,
+    required String description,
+    required String instructions,
+  }) async {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) return false;
+
+    final targetPath = '$globalSkillsPath/$cleanName';
+    final targetDir = Directory(targetPath);
+    if (!targetDir.existsSync()) {
+      targetDir.createSync(recursive: true);
+    }
+
+    final skillMd = File('$targetPath/SKILL.md');
+    final content = '''---
+name: $cleanName
+description: $description
+version: 1.0.0
+---
+
+# $cleanName
+
+$instructions
+''';
+    await skillMd.writeAsString(content);
+    return true;
+  }
+
   /// 执行技能命令
   Future<String> executeSkillCommand({
     required SkillModel skill,
@@ -238,23 +321,33 @@ class SkillService {
     List<String> args = const [],
   }) async {
     try {
-      final result = await Process.run(
-        command,
-        args,
-        workingDirectory: skill.directoryPath,
-        environment: Platform.environment,
-      );
+      final ProcessResult result;
+      if (Platform.isWindows) {
+        result = await Process.run(
+          'cmd.exe',
+          ['/c', command, ...args],
+          workingDirectory: skill.directoryPath,
+          environment: Platform.environment,
+        );
+      } else {
+        result = await Process.run(
+          command,
+          args,
+          workingDirectory: skill.directoryPath,
+          environment: Platform.environment,
+        );
+      }
 
       final stdoutText = result.stdout.toString().trim();
       final stderrText = result.stderr.toString().trim();
 
       if (result.exitCode != 0) {
-        return stderrText.isNotEmpty ? stderrText : '执行退出码异常: ${result.exitCode}';
+        return stderrText.isNotEmpty ? stderrText : '执行未完成';
       }
 
-      return stdoutText.isNotEmpty ? stdoutText : '执行成功，无标准输出';
-    } catch (e) {
-      return '执行失败: $e';
+      return stdoutText.isNotEmpty ? stdoutText : '执行完成';
+    } catch (_) {
+      return '执行未完成';
     }
   }
 }

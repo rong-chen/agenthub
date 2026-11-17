@@ -77,6 +77,82 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     );
   }
 
+  /// 会话搜索弹窗
+  void _showSearchDialog(BuildContext context, AppStateProvider provider) {
+    final searchCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final query = searchCtrl.text.trim().toLowerCase();
+            final matches = provider.sessions.where((s) {
+              if (query.isEmpty) return true;
+              if (s.title.toLowerCase().contains(query)) return true;
+              return s.messages.any((m) => m.content.toLowerCase().contains(query));
+            }).toList();
+
+            return AlertDialog(
+              backgroundColor: OpenClawTheme.cardBackground,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: OpenClawTheme.border)),
+              title: Text('搜索', style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(color: OpenClawTheme.background, borderRadius: BorderRadius.circular(8), border: Border.all(color: OpenClawTheme.border)),
+                      child: TextField(
+                        controller: searchCtrl,
+                        onChanged: (_) => setDialogState(() {}),
+                        style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
+                        decoration: const InputDecoration(border: InputBorder.none),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 280),
+                      child: matches.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text('无匹配内容', style: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13)),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: matches.length,
+                              itemBuilder: (ctx, idx) {
+                                final s = matches[idx];
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(s.title, style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  trailing: Icon(Icons.arrow_forward_ios, size: 12, color: OpenClawTheme.textTertiary),
+                                  onTap: () {
+                                    provider.switchSession(s.id);
+                                    provider.selectTab(0);
+                                    Navigator.of(ctx).pop();
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text('关闭', style: TextStyle(color: OpenClawTheme.textSecondary)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   /// 顶栏工具行
   Widget _buildTopBar(BuildContext context, AppStateProvider provider) {
     return Container(
@@ -100,7 +176,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           ),
           const SizedBox(width: 8),
           InkWell(
-            onTap: () {},
+            onTap: () => _showSearchDialog(context, provider),
             borderRadius: BorderRadius.circular(6),
             child: Container(
               padding: const EdgeInsets.all(5),
@@ -113,6 +189,28 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             ),
           ),
           const Spacer(),
+          if (provider.currentTabIndex == 0 && provider.messages.isNotEmpty) ...[
+            InkWell(
+              onTap: () => provider.clearChatHistory(),
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: OpenClawTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: OpenClawTheme.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, size: 14, color: OpenClawTheme.textSecondary),
+                    const SizedBox(width: 4),
+                    Text('清空', style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           // 主题切换按钮
           InkWell(
             onTap: () => provider.toggleTheme(),
@@ -146,7 +244,8 @@ class _HomeViewState extends State<HomeView> with WindowListener {
         children: [
           _buildSidebarHeader(provider),
           const SizedBox(height: 8),
-          _buildNavItem(0, Icons.home_outlined, '主页', provider),
+          // 导航项：对话、定时任务、插件、设置（已移除"主页"）
+          _buildNavItem(0, Icons.chat_outlined, '对话', provider),
           _buildNavItem(1, Icons.alarm_outlined, '定时任务', provider, badgeCount: provider.tasks.where((t) => t.isEnabled).length),
           _buildNavItem(2, Icons.extension_outlined, '插件', provider, badgeCount: provider.skills.length),
           _buildNavItem(3, Icons.settings_outlined, '设置', provider),
@@ -156,7 +255,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             child: Divider(height: 1, thickness: 1, color: OpenClawTheme.divider),
           ),
           const SizedBox(height: 8),
-          // 真实会话列表
+          // 会话列表
           Expanded(child: _buildSessionList(provider)),
           _buildGatewayFooter(provider),
         ],
@@ -164,12 +263,13 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     );
   }
 
-  /// 侧边栏头部
+  /// 侧边栏头部：图标 + 状态信息
   Widget _buildSidebarHeader(AppStateProvider provider) {
     return Container(
       padding: const EdgeInsets.only(left: 14, right: 10, top: 16, bottom: 8),
       child: Row(
         children: [
+          // 使用 Material Icon 替代文本 'A'
           Container(
             width: 32,
             height: 32,
@@ -178,25 +278,20 @@ class _HomeViewState extends State<HomeView> with WindowListener {
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: Text('A', style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+            child: Icon(Icons.hub_outlined, size: 18, color: OpenClawTheme.textPrimary),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Assistant', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: OpenClawTheme.textPrimary), overflow: TextOverflow.ellipsis),
-                Text(
-                  provider.config.modelName.isNotEmpty ? provider.config.modelName : 'AgentHub',
-                  style: TextStyle(fontSize: 11, color: OpenClawTheme.textTertiary),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: Text(
+              // 只显示状态信息，不再显示 'AgentHub'
+              provider.config.modelName.isNotEmpty ? provider.config.modelName : '服务正常',
+              style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           IconButton(
             icon: Icon(Icons.add, size: 18, color: OpenClawTheme.textSecondary),
-            tooltip: '新建会话',
+            tooltip: '新建',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: () async {
@@ -258,7 +353,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     );
   }
 
-  /// 真实会话列表
+  /// 会话列表
   Widget _buildSessionList(AppStateProvider provider) {
     final sessions = provider.sessions;
 
@@ -363,13 +458,13 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              isOnline ? '网关在线 :${provider.gatewayPort}' : '网关未启动',
+              isOnline ? '网关在线' : '网关未启动',
               style: TextStyle(fontSize: 11, color: OpenClawTheme.textSecondary),
             ),
           ),
           IconButton(
             icon: Icon(Icons.arrow_downward, size: 13, color: OpenClawTheme.textSecondary),
-            tooltip: '隐藏至托盘',
+            tooltip: '隐藏',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: () => windowManager.hide(),

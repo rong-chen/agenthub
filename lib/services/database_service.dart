@@ -221,6 +221,11 @@ class DatabaseService {
   Future<List<ScheduledTaskModel>> loadTasks() async {
     final db = await database;
     final List<Map<String, dynamic>> rows = await db.query('scheduled_tasks');
+    // 无任务时返回空列表，不再插入默认任务
+    if (rows.isEmpty) {
+      return [];
+    }
+
     return rows.map((r) {
       return ScheduledTaskModel(
         id: r['id'] as String,

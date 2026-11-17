@@ -16,7 +16,7 @@ class TrayService with TrayListener {
         : 'assets/icons/tray_icon.png';
 
     await trayManager.setIcon(iconPath);
-    await trayManager.setToolTip('AgentHub');
+    await trayManager.setToolTip('服务运行中');
     await updateContextMenu();
   }
 
@@ -27,8 +27,8 @@ class TrayService with TrayListener {
     int port = 18789,
   }) async {
     final statusText = isGatewayConnected
-        ? '本地网关: 运行中 (端口 $port)'
-        : '本地网关: 未启动';
+        ? '本地网关在线: 端口 $port'
+        : '本地网关未启动';
     final skillsText = '本地技能: $activeSkillsCount 项';
 
     final Menu menu = Menu(

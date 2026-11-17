@@ -14,30 +14,32 @@ void main() async {
   // 桌面端初始化 SQLite FFI
   sqfliteFfiInit();
 
-  // 初始化桌面窗口管理
+  // 桌面端窗口配置：先设置尺寸再显示，避免闪烁
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-    await windowManager.ensureInitialized();
+    try {
+      await windowManager.ensureInitialized();
 
-    const WindowOptions windowOptions = WindowOptions(
-      size: Size(1440, 900),
-      minimumSize: Size(900, 600),
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      title: 'AgentHub',
-    );
+      const WindowOptions windowOptions = WindowOptions(
+        size: Size(1280, 800),
+        minimumSize: Size(900, 600),
+        center: true,
+        skipTaskbar: false,
+        backgroundColor: Colors.transparent,
+      );
 
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.setPreventClose(true);
-      await windowManager.show();
-      await windowManager.maximize();
-      await windowManager.focus();
-    });
+      // 等待窗口就绪后再显示，避免从小窗口动画放大
+      windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.setPreventClose(true);
+        await windowManager.show();
+        await windowManager.focus();
+      });
 
-    // 初始化系统托盘
-    await TrayService.instance.initTray();
+      // 初始化系统托盘
+      await TrayService.instance.initTray();
+    } catch (_) {}
   }
 
+  // 启动应用根组件
   runApp(const OpenClawApp());
 }
 
@@ -52,8 +54,9 @@ class OpenClawApp extends StatelessWidget {
       child: Consumer<AppStateProvider>(
         builder: (context, provider, _) {
           final isDark = provider.isDarkTheme;
+          // 同步全局主题模式
+          OpenClawTheme.isDark = isDark;
           return MaterialApp(
-            title: 'AgentHub',
             debugShowCheckedModeBanner: false,
             themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
             theme: OpenClawTheme.buildTheme(false),

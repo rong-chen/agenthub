@@ -44,6 +44,7 @@ void main() {
 
     // 3. 测试 /ws WebSocket 双向长连接
     final ws = await WebSocket.connect('ws://127.0.0.1:19789/ws');
+    await Future.delayed(const Duration(milliseconds: 50));
     expect(server.activeClientsCount, 1);
 
     // 发送 ping

@@ -116,7 +116,7 @@ class AppStateProvider extends ChangeNotifier {
 
   // ==================== 会话管理 ====================
 
-  /// 创建新会话
+  /// 创建新会话，并自动切换到对话标签页
   Future<void> createNewSession() async {
     final now = DateTime.now();
     final session = ChatSessionModel(
@@ -128,6 +128,7 @@ class AppStateProvider extends ChangeNotifier {
     await _dbService.insertSession(session);
     _sessions.insert(0, session);
     _activeSessionId = session.id;
+    _currentTabIndex = 0; // 保持在对话页
     notifyListeners();
   }
 
@@ -296,6 +297,28 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 执行指定插件
+  Future<String> executeSkill(SkillModel skill, [String? customCommand]) async {
+    return await _skillService.runSkill(skill, customCommand);
+  }
+
+  /// 创建新本地插件
+  Future<bool> createSkill({
+    required String name,
+    required String description,
+    required String instructions,
+  }) async {
+    final ok = await _skillService.createSkill(
+      name: name,
+      description: description,
+      instructions: instructions,
+    );
+    if (ok) {
+      await reloadSkills();
+    }
+    return ok;
+  }
+
   // ==================== Cron 定时任务 ====================
 
   /// 重新加载所有计划任务
@@ -348,6 +371,7 @@ class AppStateProvider extends ChangeNotifier {
 
   /// 新增一个计划任务
   Future<void> addTask(ScheduledTaskModel task) async {
+    task.nextRun = _cronService.calculateNextRun(task.schedule);
     await _dbService.saveTask(task);
     _tasks = await _dbService.loadTasks();
     _syncCronScheduler();
@@ -438,10 +462,86 @@ class AppStateProvider extends ChangeNotifier {
     _isBusy = true;
     notifyListeners();
 
-    if (_isGatewayOnline) {
-      await _sendViaWebSocket(msgId, trimmed, assistantMessage);
+    // 本地命令支持与快速响应
+    if (trimmed.startsWith('/run ') || trimmed.startsWith('运行插件 ') || trimmed.startsWith('运行 ')) {
+      final skillName = trimmed.replaceFirst(RegExp(r'^(/run|运行插件|运行)\s+'), '').trim();
+      final skill = _skills.cast<SkillModel?>().firstWhere(
+        (s) => s?.name.toLowerCase() == skillName.toLowerCase(),
+        orElse: () => null,
+      );
+      if (skill != null) {
+        final out = await _skillService.runSkill(skill);
+        assistantMessage.content = out;
+        assistantMessage.status = MessageStatus.done;
+      } else {
+        assistantMessage.content = '未找到插件: $skillName';
+        assistantMessage.status = MessageStatus.done;
+      }
+    } else if (trimmed == '/status' || trimmed == '状态') {
+      final activeTasks = _tasks.where((t) => t.isEnabled).length;
+      final activeSkills = _skills.where((s) => s.isEnabled).length;
+      assistantMessage.content = '网关: ${_isGatewayOnline ? "在线" : "未启动"}\n任务: $activeTasks 项\n插件: $activeSkills 项';
+      assistantMessage.status = MessageStatus.done;
+    } else if (trimmed == '/skills' || trimmed == '插件') {
+      if (_skills.isEmpty) {
+        assistantMessage.content = '暂无插件';
+      } else {
+        assistantMessage.content = _skills.map((s) => '- ${s.name}: ${s.description}').join('\n');
+      }
+      assistantMessage.status = MessageStatus.done;
+    } else if (trimmed == '/help' || trimmed == '帮助') {
+      assistantMessage.content = '支持的命令:\n- 运行 <名称>\n- 插件\n- 状态\n- 注册定时 <名称> <cron> <类型>';
+      assistantMessage.status = MessageStatus.done;
+    } else if (trimmed.startsWith('注册定时 ') || trimmed.startsWith('添加定时 ') || trimmed.startsWith('/schedule ')) {
+      // 解析定时任务注册指令：注册定时 <名称> <cron表达式> [任务类型]
+      final parts = trimmed.replaceFirst(RegExp(r'^(注册定时|添加定时|/schedule)\s+'), '').trim().split(RegExp(r'\s+'));
+      if (parts.length >= 2) {
+        final taskName = parts[0];
+        String actionType = 'gateway_check';
+        String command = '';
+        String cronExpr = '';
+
+        if (parts.length >= 3 && (parts.last == 'gateway_check' || parts.last == 'skills_reload' || parts.last == 'shell_cmd')) {
+          actionType = parts.last;
+          cronExpr = parts.sublist(1, parts.length - 1).join(' ');
+        } else {
+          cronExpr = parts.sublist(1).join(' ');
+        }
+
+        final newTask = ScheduledTaskModel(
+          id: 'task_${DateTime.now().millisecondsSinceEpoch}',
+          name: taskName,
+          schedule: cronExpr.isNotEmpty ? cronExpr : '*/30 * * * *',
+          actionType: actionType,
+          command: command,
+          isEnabled: true,
+        );
+        await addTask(newTask);
+        assistantMessage.content = '已注册定时任务: $taskName\n调度: ${newTask.schedule}\n类型: $actionType';
+      } else {
+        assistantMessage.content = '格式: 注册定时 <名称> <周期> [类型]';
+      }
+      assistantMessage.status = MessageStatus.done;
+    } else if (_config.apiBaseUrl.trim().isEmpty || _config.apiKey.trim().isEmpty) {
+      // 检查是否有匹配的本地插件
+      final matchedSkill = _skills.cast<SkillModel?>().firstWhere(
+        (s) => s != null && s.isEnabled && trimmed.toLowerCase().contains(s.name.toLowerCase()),
+        orElse: () => null,
+      );
+      if (matchedSkill != null) {
+        final out = await _skillService.runSkill(matchedSkill);
+        assistantMessage.content = out;
+        assistantMessage.status = MessageStatus.done;
+      } else {
+        assistantMessage.content = '请先在设置中配置服务地址与访问密钥';
+        assistantMessage.status = MessageStatus.done;
+      }
     } else {
-      await _sendViaDirectStream(msgId, trimmed, assistantMessage);
+      if (_isGatewayOnline) {
+        await _sendViaWebSocket(msgId, trimmed, assistantMessage);
+      } else {
+        await _sendViaDirectStream(msgId, trimmed, assistantMessage);
+      }
     }
 
     assistantMessage.status = assistantMessage.status == MessageStatus.streaming
@@ -449,11 +549,14 @@ class AppStateProvider extends ChangeNotifier {
         : assistantMessage.status;
     await _dbService.saveMessage(_activeSessionId!, assistantMessage);
 
+    // 解析 AI 回复中的定时任务注册指令
+    await _tryRegisterTaskFromAiResponse(assistantMessage.content);
+
     // 更新会话活跃时间
     session.updatedAt = DateTime.now();
     await _dbService.updateSession(session);
 
-    // 刷新会话排序（最新的排最前）
+    // 刷新会话排序
     _sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
     _isBusy = false;
@@ -646,5 +749,52 @@ class AppStateProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// 解析并自动注册 AI 输出中的定时任务指令块
+  Future<void> _tryRegisterTaskFromAiResponse(String content) async {
+    final taskBlockRegex = RegExp(r'```task\s*([\s\S]*?)```', multiLine: true);
+    final match = taskBlockRegex.firstMatch(content);
+    if (match != null) {
+      final block = match.group(1) ?? '';
+      String name = '';
+      String schedule = '*/30 * * * *';
+      String actionType = 'gateway_check';
+      String command = '';
+
+      for (final line in block.split('\n')) {
+        final trimmed = line.trim();
+        if (trimmed.startsWith('名称:')) {
+          name = trimmed.substring(3).trim();
+        } else if (trimmed.startsWith('周期:')) {
+          schedule = trimmed.substring(3).trim();
+        } else if (trimmed.startsWith('类型:')) {
+          final t = trimmed.substring(3).trim();
+          if (t.contains('gateway') || t.contains('网关')) {
+            actionType = 'gateway_check';
+          } else if (t.contains('skills') || t.contains('插件')) {
+            actionType = 'skills_reload';
+          } else if (t.contains('shell') || t.contains('命令')) {
+            actionType = 'shell_cmd';
+          } else {
+            actionType = t;
+          }
+        } else if (trimmed.startsWith('命令:')) {
+          command = trimmed.substring(3).trim();
+        }
+      }
+
+      if (name.isNotEmpty) {
+        final newTask = ScheduledTaskModel(
+          id: 'task_${DateTime.now().millisecondsSinceEpoch}',
+          name: name,
+          schedule: schedule.isNotEmpty ? schedule : '*/30 * * * *',
+          actionType: actionType,
+          command: command,
+          isEnabled: true,
+        );
+        await addTask(newTask);
+      }
+    }
   }
 }
