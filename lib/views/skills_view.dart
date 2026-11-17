@@ -38,13 +38,16 @@ class _SkillsViewState extends State<SkillsView> {
               children: [
                 Text('安装来源', style: TextStyle(color: OpenClawTheme.textSecondary, fontSize: 13)),
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(color: OpenClawTheme.background, borderRadius: BorderRadius.circular(8), border: Border.all(color: OpenClawTheme.border)),
-                  child: TextField(
-                    controller: textController,
-                    style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
-                    decoration: const InputDecoration(border: InputBorder.none),
+                TextField(
+                  controller: textController,
+                  style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: OpenClawTheme.background,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: OpenClawTheme.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: OpenClawTheme.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OpenClawTheme.primaryRed)),
                   ),
                 ),
               ],

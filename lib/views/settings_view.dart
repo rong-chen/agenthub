@@ -209,14 +209,28 @@ class _SettingsViewState extends State<SettingsView> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: TextStyle(fontSize: 12, color: OpenClawTheme.textSecondary)),
       const SizedBox(height: 6),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(color: OpenClawTheme.inputBackground, borderRadius: BorderRadius.circular(8), border: Border.all(color: OpenClawTheme.border)),
-        child: TextField(
-          controller: controller,
-          obscureText: isPassword,
-          style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
-          decoration: InputDecoration(hintText: hint, hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13), border: InputBorder.none),
+      TextField(
+        controller: controller,
+        obscureText: isPassword,
+        style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: OpenClawTheme.textTertiary, fontSize: 13),
+          filled: true,
+          fillColor: OpenClawTheme.inputBackground,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: OpenClawTheme.border),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: OpenClawTheme.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: OpenClawTheme.primaryRed),
+          ),
         ),
       ),
     ]);

@@ -101,14 +101,17 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(color: OpenClawTheme.background, borderRadius: BorderRadius.circular(8), border: Border.all(color: OpenClawTheme.border)),
-                      child: TextField(
-                        controller: searchCtrl,
-                        onChanged: (_) => setDialogState(() {}),
-                        style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
-                        decoration: const InputDecoration(border: InputBorder.none),
+                    TextField(
+                      controller: searchCtrl,
+                      onChanged: (_) => setDialogState(() {}),
+                      style: TextStyle(color: OpenClawTheme.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: OpenClawTheme.background,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: OpenClawTheme.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: OpenClawTheme.border)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OpenClawTheme.primaryRed)),
                       ),
                     ),
                     const SizedBox(height: 12),
