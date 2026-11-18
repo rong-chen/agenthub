@@ -58,23 +58,30 @@ class SkillModel {
     final List<String> requiredEnvs = [];
 
     final metadata = yamlMap['metadata'];
+    Map? requiresMap;
+
     if (metadata is Map) {
-      final agenthub = metadata['agenthub'];
-      if (agenthub is Map) {
-        final requires = agenthub['requires'];
-        if (requires is Map) {
-          final bins = requires['bins'];
-          if (bins is List) {
-            for (final item in bins) {
-              requiredBins.add(item.toString());
-            }
-          }
-          final envs = requires['env'];
-          if (envs is List) {
-            for (final item in envs) {
-              requiredEnvs.add(item.toString());
-            }
-          }
+      final pluginMeta = metadata['openclaw'] ?? metadata['agenthub'];
+      if (pluginMeta is Map && pluginMeta['requires'] is Map) {
+        requiresMap = pluginMeta['requires'] as Map;
+      } else if (metadata['requires'] is Map) {
+        requiresMap = metadata['requires'] as Map;
+      }
+    } else if (yamlMap['requires'] is Map) {
+      requiresMap = yamlMap['requires'] as Map;
+    }
+
+    if (requiresMap != null) {
+      final bins = requiresMap['bins'];
+      if (bins is List) {
+        for (final item in bins) {
+          requiredBins.add(item.toString());
+        }
+      }
+      final envs = requiresMap['env'];
+      if (envs is List) {
+        for (final item in envs) {
+          requiredEnvs.add(item.toString());
         }
       }
     }

@@ -120,9 +120,20 @@ class _SkillsViewState extends State<SkillsView> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AgentHubTheme.border)),
           title: Text(skill.name, style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
           content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Text(result, style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, height: 1.5)),
+            width: 520,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AgentHubTheme.inputBackground,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AgentHubTheme.border),
+              ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  result,
+                  style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, height: 1.5, fontFamily: 'Courier'),
+                ),
+              ),
             ),
           ),
           actions: [
@@ -178,15 +189,18 @@ class _SkillsViewState extends State<SkillsView> {
               child: TextField(
                 controller: _searchController,
                 onChanged: (_) => setState(() {}),
+                textAlignVertical: TextAlignVertical.center,
                 style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
                 decoration: InputDecoration(
+                  isDense: true,
                   hintText: '搜索',
                   hintStyle: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary),
-                  prefixIcon: Icon(Icons.search, size: 18, color: AgentHubTheme.textTertiary),
+                  prefixIcon: Icon(Icons.search, size: 16, color: AgentHubTheme.textTertiary),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                  contentPadding: const EdgeInsets.only(right: 10),
                 ),
               ),
             ),
@@ -256,7 +270,7 @@ class _SkillsViewState extends State<SkillsView> {
               onPressed: () => _handleRunSkill(context, provider, skill),
             ),
             const SizedBox(width: 6),
-            SizedBox(width: 36, height: 20, child: FittedBox(child: Switch(value: skill.isEnabled, activeColor: AgentHubTheme.primaryRed, onChanged: (val) => provider.toggleSkill(skill, val)))),
+            SizedBox(width: 36, height: 20, child: FittedBox(child: Switch(value: skill.isEnabled, activeThumbColor: AgentHubTheme.primaryRed, onChanged: (val) => provider.toggleSkill(skill, val)))),
             const SizedBox(width: 6),
             IconButton(
               icon: Icon(Icons.delete_outline, size: 16, color: AgentHubTheme.primaryRed),

@@ -40,6 +40,84 @@ class _TasksViewState extends State<TasksView> {
     return '${diff.inDays}天后';
   }
 
+  void _showEditTaskDialog(BuildContext context, ScheduledTaskModel task) {
+    final nameCtrl = TextEditingController(text: task.name);
+    final scheduleCtrl = TextEditingController(text: task.schedule);
+    final commandCtrl = TextEditingController(text: task.command);
+    String actionType = task.actionType;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AgentHubTheme.cardBackground,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AgentHubTheme.border)),
+            title: Text('编辑任务', style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _dialogLabel('任务名称'),
+                  const SizedBox(height: 6),
+                  _dialogField(nameCtrl, ''),
+                  const SizedBox(height: 14),
+                  _dialogLabel('执行周期'),
+                  const SizedBox(height: 6),
+                  _dialogField(scheduleCtrl, ''),
+                  const SizedBox(height: 14),
+                  _dialogLabel('任务类型'),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    initialValue: actionType,
+                    dropdownColor: AgentHubTheme.cardBackground,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AgentHubTheme.border)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
+                    items: const [
+                      DropdownMenuItem(value: 'gateway_check', child: Text('网关检测')),
+                      DropdownMenuItem(value: 'skills_reload', child: Text('插件扫描')),
+                      DropdownMenuItem(value: 'shell_cmd', child: Text('系统命令')),
+                    ],
+                    onChanged: (val) => setDialogState(() => actionType = val ?? 'gateway_check'),
+                  ),
+                  if (actionType == 'shell_cmd') ...[
+                    const SizedBox(height: 14),
+                    _dialogLabel('执行内容'),
+                    const SizedBox(height: 6),
+                    _dialogField(commandCtrl, ''),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('取消', style: TextStyle(color: AgentHubTheme.textSecondary))),
+              ElevatedButton(
+                onPressed: () async {
+                  final name = nameCtrl.text.trim();
+                  if (name.isEmpty) return;
+                  Navigator.of(ctx).pop();
+                  final provider = context.read<AppStateProvider>();
+                  task.name = name;
+                  task.schedule = scheduleCtrl.text.trim().isNotEmpty ? scheduleCtrl.text.trim() : '*/30 * * * *';
+                  task.actionType = actionType;
+                  task.command = commandCtrl.text.trim();
+                  await provider.updateTask(task);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: AgentHubTheme.primaryRed, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: const Text('保存'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
   void _showCreateTaskDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
     final scheduleCtrl = TextEditingController();
@@ -71,7 +149,7 @@ class _TasksViewState extends State<TasksView> {
                   _dialogLabel('任务类型'),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: actionType,
+                    initialValue: actionType,
                     dropdownColor: AgentHubTheme.cardBackground,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AgentHubTheme.border)),
@@ -264,15 +342,18 @@ class _TasksViewState extends State<TasksView> {
             child: TextField(
               controller: _searchController,
               onChanged: (_) => setState(() {}),
+              textAlignVertical: TextAlignVertical.center,
               style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
               decoration: InputDecoration(
+                isDense: true,
                 hintText: '搜索',
                 hintStyle: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary),
-                prefixIcon: Icon(Icons.search, size: 18, color: AgentHubTheme.textTertiary),
+                prefixIcon: Icon(Icons.search, size: 16, color: AgentHubTheme.textTertiary),
+                prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                contentPadding: const EdgeInsets.only(right: 10),
               ),
             ),
           ),
@@ -364,15 +445,17 @@ class _TasksViewState extends State<TasksView> {
           ]),
         ),
         SizedBox(
-          width: 90,
+          width: 116,
           child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             IconButton(icon: Icon(Icons.play_arrow_outlined, size: 18, color: AgentHubTheme.textSecondary), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => provider.triggerTask(task.id)),
+            const SizedBox(width: 4),
+            IconButton(icon: Icon(Icons.edit_outlined, size: 16, color: AgentHubTheme.textSecondary), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => _showEditTaskDialog(context, task)),
             const SizedBox(width: 4),
             SizedBox(
               width: 36,
               height: 20,
               child: FittedBox(
-                child: Switch(value: task.isEnabled, activeColor: AgentHubTheme.primaryRed, onChanged: (val) => provider.toggleTask(task.id, val)),
+                child: Switch(value: task.isEnabled, activeThumbColor: AgentHubTheme.primaryRed, onChanged: (val) => provider.toggleTask(task.id, val)),
               ),
             ),
             const SizedBox(width: 4),
@@ -427,7 +510,23 @@ class _TasksViewState extends State<TasksView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             decoration: BoxDecoration(border: Border(top: BorderSide(color: AgentHubTheme.divider))),
-            child: Align(alignment: Alignment.centerLeft, child: Text('共 ${logs.length} 条记录', style: TextStyle(fontSize: 12, color: AgentHubTheme.textTertiary))),
+            child: Row(
+              children: [
+                Text('共 ${logs.length} 条记录', style: TextStyle(fontSize: 12, color: AgentHubTheme.textTertiary)),
+                const Spacer(),
+                if (logs.isNotEmpty)
+                  InkWell(
+                    onTap: () async {
+                      await provider.clearTaskLogs();
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Text('清空历史', style: TextStyle(fontSize: 12, color: AgentHubTheme.primaryRed)),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),

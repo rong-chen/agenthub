@@ -8,6 +8,11 @@ class GatewayConfig {
   String customSkillsPath;
   bool minimizeToTrayOnClose;
   String themeMode; // light | dark
+  String httpProxy; // 网络代理地址
+  double temperature; // 模型温度
+  double topP; // Top_P采样
+  bool wechatChannelEnabled; // 是否开启微信通道
+  bool wechatAutoReply; // 是否开启微信自动回复
 
   GatewayConfig({
     required this.gatewayPort,
@@ -18,6 +23,11 @@ class GatewayConfig {
     required this.customSkillsPath,
     required this.minimizeToTrayOnClose,
     this.themeMode = 'light',
+    this.httpProxy = '',
+    this.temperature = 0.7,
+    this.topP = 0.9,
+    this.wechatChannelEnabled = false,
+    this.wechatAutoReply = false,
   });
 
   /// 创建初始配置
@@ -31,6 +41,11 @@ class GatewayConfig {
       customSkillsPath: '',
       minimizeToTrayOnClose: true,
       themeMode: 'light',
+      httpProxy: '',
+      temperature: 0.7,
+      topP: 0.9,
+      wechatChannelEnabled: false,
+      wechatAutoReply: false,
     );
   }
 
@@ -45,6 +60,11 @@ class GatewayConfig {
       'customSkillsPath': customSkillsPath,
       'minimizeToTrayOnClose': minimizeToTrayOnClose,
       'themeMode': themeMode,
+      'httpProxy': httpProxy,
+      'temperature': temperature,
+      'topP': topP,
+      'wechatChannelEnabled': wechatChannelEnabled,
+      'wechatAutoReply': wechatAutoReply,
     };
   }
 
@@ -58,6 +78,11 @@ class GatewayConfig {
     String? customSkillsPath,
     bool? minimizeToTrayOnClose,
     String? themeMode,
+    String? httpProxy,
+    double? temperature,
+    double? topP,
+    bool? wechatChannelEnabled,
+    bool? wechatAutoReply,
   }) {
     return GatewayConfig(
       gatewayPort: gatewayPort ?? this.gatewayPort,
@@ -68,6 +93,11 @@ class GatewayConfig {
       customSkillsPath: customSkillsPath ?? this.customSkillsPath,
       minimizeToTrayOnClose: minimizeToTrayOnClose ?? this.minimizeToTrayOnClose,
       themeMode: themeMode ?? this.themeMode,
+      httpProxy: httpProxy ?? this.httpProxy,
+      temperature: temperature ?? this.temperature,
+      topP: topP ?? this.topP,
+      wechatChannelEnabled: wechatChannelEnabled ?? this.wechatChannelEnabled,
+      wechatAutoReply: wechatAutoReply ?? this.wechatAutoReply,
     );
   }
 
@@ -82,6 +112,11 @@ class GatewayConfig {
       customSkillsPath: json['customSkillsPath']?.toString() ?? '',
       minimizeToTrayOnClose: json['minimizeToTrayOnClose'] != false,
       themeMode: json['themeMode']?.toString() == 'dark' ? 'dark' : 'light',
+      httpProxy: json['httpProxy']?.toString() ?? '',
+      temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
+      topP: (json['topP'] as num?)?.toDouble() ?? 0.9,
+      wechatChannelEnabled: json['wechatChannelEnabled'] == true,
+      wechatAutoReply: json['wechatAutoReply'] == true,
     );
   }
 }

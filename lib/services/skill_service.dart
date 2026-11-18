@@ -57,6 +57,15 @@ class SkillService {
     }
     paths.add(globalSkillsPath);
 
+    // 自动兼容龙虾 (~/.openclaw/skills) 目录
+    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
+    if (home.isNotEmpty) {
+      final legacySkillsDir = Directory('$home/.openclaw/skills');
+      if (legacySkillsDir.existsSync()) {
+        paths.add(legacySkillsDir.path);
+      }
+    }
+
     return paths;
   }
 

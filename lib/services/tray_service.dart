@@ -63,8 +63,15 @@ class TrayService with TrayListener {
     await trayManager.setContextMenu(menu);
   }
 
+  DateTime _lastClickTime = DateTime.fromMillisecondsSinceEpoch(0);
+
   @override
   void onTrayIconMouseDown() {
+    final now = DateTime.now();
+    if (now.difference(_lastClickTime).inMilliseconds < 250) {
+      return;
+    }
+    _lastClickTime = now;
     _toggleWindowVisibility();
   }
 
@@ -94,16 +101,32 @@ class TrayService with TrayListener {
   /// 切换主窗口显隐状态
   Future<void> _toggleWindowVisibility() async {
     final isVisible = await windowManager.isVisible();
-    if (isVisible) {
+    final isFocused = await windowManager.isFocused();
+    final isMinimized = await windowManager.isMinimized();
+
+    if (isMinimized) {
+      await windowManager.restore();
+      await windowManager.show();
+      await windowManager.focus();
+      return;
+    }
+
+    // 只有窗口处于显示状态且当前正是前台聚焦窗口时，点击才收起隐藏
+    if (isVisible && isFocused) {
       await windowManager.hide();
       return;
     }
 
+    // 若窗口未显示，或窗口在后台（被其他软件遮挡/失去焦点），点击直接拉至最前台并聚焦
     await _showWindow();
   }
 
   /// 显示并聚焦窗口
   Future<void> _showWindow() async {
+    final isMinimized = await windowManager.isMinimized();
+    if (isMinimized) {
+      await windowManager.restore();
+    }
     await windowManager.show();
     await windowManager.focus();
   }

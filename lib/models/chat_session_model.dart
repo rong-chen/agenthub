@@ -7,6 +7,8 @@ class ChatSessionModel {
   DateTime createdAt;
   DateTime updatedAt;
   List<ChatMessageModel> messages;
+  int unreadCount;
+  String channel; // internal | wechat
 
   ChatSessionModel({
     required this.id,
@@ -14,6 +16,8 @@ class ChatSessionModel {
     required this.createdAt,
     required this.updatedAt,
     List<ChatMessageModel>? messages,
+    this.unreadCount = 0,
+    this.channel = 'internal',
   }) : messages = messages ?? [];
 
   Map<String, dynamic> toJson() => {
@@ -22,6 +26,8 @@ class ChatSessionModel {
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
         'messages': messages.map((m) => m.toJson()).toList(),
+        'unreadCount': unreadCount,
+        'channel': channel,
       };
 
   factory ChatSessionModel.fromJson(Map<String, dynamic> json) {
@@ -38,6 +44,8 @@ class ChatSessionModel {
       messages: rawMessages
           .map((item) => ChatMessageModel.fromJson(Map<String, dynamic>.from(item as Map)))
           .toList(),
+      unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
+      channel: json['channel']?.toString() ?? 'internal',
     );
   }
 }

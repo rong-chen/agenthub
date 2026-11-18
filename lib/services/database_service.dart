@@ -31,7 +31,7 @@ class DatabaseService {
     final dbFactory = databaseFactoryFfi;
 
     final dbPath = '${PathUtils.agentHubRootDir}/agenthub.db';
-    return await dbFactory.openDatabase(
+    final db = await dbFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
         version: 1,
@@ -42,7 +42,9 @@ class DatabaseService {
               id TEXT PRIMARY KEY,
               title TEXT NOT NULL,
               created_at INTEGER NOT NULL,
-              updated_at INTEGER NOT NULL
+              updated_at INTEGER NOT NULL,
+              unread_count INTEGER NOT NULL DEFAULT 0,
+              channel TEXT NOT NULL DEFAULT 'internal'
             )
           ''');
 
@@ -98,6 +100,20 @@ class DatabaseService {
         },
       ),
     );
+
+    // 检查并升级 sessions 表结构
+    try {
+      final info = await db.rawQuery('PRAGMA table_info(sessions)');
+      final columns = info.map((r) => r['name']?.toString()).toSet();
+      if (!columns.contains('unread_count')) {
+        await db.execute('ALTER TABLE sessions ADD COLUMN unread_count INTEGER NOT NULL DEFAULT 0');
+      }
+      if (!columns.contains('channel')) {
+        await db.execute('ALTER TABLE sessions ADD COLUMN channel TEXT NOT NULL DEFAULT "internal"');
+      }
+    } catch (_) {}
+
+    return db;
   }
 
   // ==================== 会话与消息管理 ====================
@@ -142,6 +158,8 @@ class DatabaseService {
         createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
         updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
         messages: messages,
+        unreadCount: (row['unread_count'] as num?)?.toInt() ?? 0,
+        channel: row['channel'] as String? ?? 'internal',
       ));
     }
 
@@ -158,12 +176,14 @@ class DatabaseService {
         'title': session.title,
         'created_at': session.createdAt.millisecondsSinceEpoch,
         'updated_at': session.updatedAt.millisecondsSinceEpoch,
+        'unread_count': session.unreadCount,
+        'channel': session.channel,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  /// 更新会话标题与更新时间
+  /// 更新会话标题、更新时间与未读数
   Future<void> updateSession(ChatSessionModel session) async {
     final db = await database;
     await db.update(
@@ -171,9 +191,22 @@ class DatabaseService {
       {
         'title': session.title,
         'updated_at': session.updatedAt.millisecondsSinceEpoch,
+        'unread_count': session.unreadCount,
+        'channel': session.channel,
       },
       where: 'id = ?',
       whereArgs: [session.id],
+    );
+  }
+
+  /// 将会话标记为已读
+  Future<void> markSessionAsRead(String sessionId) async {
+    final db = await database;
+    await db.update(
+      'sessions',
+      {'unread_count': 0},
+      where: 'id = ?',
+      whereArgs: [sessionId],
     );
   }
 
@@ -314,6 +347,41 @@ class DatabaseService {
     );
   }
 
+  /// 检索包含特定关键字的消息记录与会话信息
+  Future<List<Map<String, dynamic>>> searchMessages(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
+
+    final db = await database;
+    final results = await db.rawQuery('''
+      SELECT m.id, m.session_id, m.role, m.content, m.created_at, s.title as session_title
+      FROM messages m
+      JOIN sessions s ON m.session_id = s.id
+      WHERE m.content LIKE ?
+      ORDER BY m.created_at DESC
+      LIMIT 50
+    ''', ['%$trimmed%']);
+
+    return results;
+  }
+
+  /// 清空会话与全部消息记录
+  Future<void> resetAllSessions() async {
+    final db = await database;
+    await db.delete('messages');
+    await db.delete('sessions');
+  }
+
+  /// 清空任务运行历史日志
+  Future<void> clearTaskLogs({String? taskId}) async {
+    final db = await database;
+    if (taskId != null && taskId.isNotEmpty) {
+      await db.delete('task_logs', where: 'task_id = ?', whereArgs: [taskId]);
+    } else {
+      await db.delete('task_logs');
+    }
+  }
+
   // ==================== 配置读取与存储 ====================
 
   /// 读取配置
@@ -349,6 +417,11 @@ class DatabaseService {
       customSkillsPath: map['customSkillsPath'] ?? '',
       minimizeToTrayOnClose: map['minimizeToTrayOnClose'] != 'false',
       themeMode: map['themeMode'] ?? 'light',
+      httpProxy: map['httpProxy'] ?? '',
+      temperature: double.tryParse(map['temperature'] ?? '0.7') ?? 0.7,
+      topP: double.tryParse(map['topP'] ?? '0.9') ?? 0.9,
+      wechatChannelEnabled: map['wechatChannelEnabled'] == 'true',
+      wechatAutoReply: map['wechatAutoReply'] == 'true',
     );
   }
 
@@ -364,6 +437,11 @@ class DatabaseService {
       'customSkillsPath': config.customSkillsPath,
       'minimizeToTrayOnClose': config.minimizeToTrayOnClose.toString(),
       'themeMode': config.themeMode,
+      'httpProxy': config.httpProxy,
+      'temperature': config.temperature.toString(),
+      'topP': config.topP.toString(),
+      'wechatChannelEnabled': config.wechatChannelEnabled.toString(),
+      'wechatAutoReply': config.wechatAutoReply.toString(),
     };
 
     final batch = db.batch();
@@ -375,5 +453,37 @@ class DatabaseService {
       );
     });
     await batch.commit(noResult: true);
+  }
+
+  /// 保存微信通道凭证
+  Future<void> saveWechatToken(String botToken, String botName) async {
+    final db = await database;
+    final batch = db.batch();
+    batch.insert('configs', {'key': 'wechat_bot_token', 'value': botToken}, conflictAlgorithm: ConflictAlgorithm.replace);
+    batch.insert('configs', {'key': 'wechat_bot_name', 'value': botName}, conflictAlgorithm: ConflictAlgorithm.replace);
+    await batch.commit(noResult: true);
+  }
+
+  /// 读取持久化的微信通道凭证
+  Future<Map<String, String?>> loadWechatToken() async {
+    final db = await database;
+    final rows = await db.query(
+      'configs',
+      where: 'key IN (?, ?)',
+      whereArgs: ['wechat_bot_token', 'wechat_bot_name'],
+    );
+    String? token;
+    String? name;
+    for (final r in rows) {
+      if (r['key'] == 'wechat_bot_token') token = r['value']?.toString();
+      if (r['key'] == 'wechat_bot_name') name = r['value']?.toString();
+    }
+    return {'botToken': token, 'botName': name};
+  }
+
+  /// 清除微信通道持久化凭证
+  Future<void> clearWechatToken() async {
+    final db = await database;
+    await db.delete('configs', where: 'key IN (?, ?)', whereArgs: ['wechat_bot_token', 'wechat_bot_name']);
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_message_model.dart';
+import '../models/chat_session_model.dart';
 import '../providers/app_state_provider.dart';
 import '../theme/agenthub_theme.dart';
 
@@ -18,7 +19,9 @@ class _ChatViewState extends State<ChatView> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
-  bool _isUserSending = false;
+  String? _copiedMessageId;
+  String? _lastSessionId;
+  int _lastMessageCount = 0;
 
   @override
   void dispose() {
@@ -38,25 +41,38 @@ class _ChatViewState extends State<ChatView> {
     if (provider.isBusy) {
       return;
     }
-    _isUserSending = true;
     provider.sendMessage(text);
     _inputController.clear();
-    _animateToBottom();
+    _scrollToBottom(animate: true);
   }
 
-  /// 发送新消息时的平滑动画滚动
-  void _animateToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+  /// 滚动到消息底部
+  void _scrollToBottom({bool animate = true}) {
+    void execute() {
       if (!_scrollController.hasClients) {
         return;
       }
-      if (_scrollController.offset > 1.0) {
-        _scrollController.animateTo(
-          0.0,
-          duration: const Duration(milliseconds: 320),
-          curve: Curves.easeOutCubic,
-        );
+      final target = _scrollController.position.maxScrollExtent;
+      if (target <= 0) {
+        return;
       }
+      if (animate) {
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(target);
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      execute();
+      // 在首帧排版完全计算完各气泡高度后，连续多阶段校准到底部
+      Future.delayed(const Duration(milliseconds: 30), execute);
+      Future.delayed(const Duration(milliseconds: 80), execute);
+      Future.delayed(const Duration(milliseconds: 160), execute);
     });
   }
 
@@ -66,19 +82,22 @@ class _ChatViewState extends State<ChatView> {
     AgentHubTheme.isDark = provider.isDarkTheme;
     final messages = provider.messages;
 
-    if (_isUserSending) {
-      _isUserSending = false;
-      _animateToBottom();
+    if (_lastSessionId != provider.activeSessionId) {
+      _lastSessionId = provider.activeSessionId;
+      _lastMessageCount = messages.length;
+      _scrollToBottom(animate: false);
+    } else if (messages.length != _lastMessageCount || provider.isBusy) {
+      _lastMessageCount = messages.length;
+      _scrollToBottom(animate: true);
     }
 
     return Container(
       color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: Column(
         children: [
-          // 移除了 _buildHeaderRow，直接显示消息区域
           Expanded(
             child: messages.isEmpty
-                ? const SizedBox.shrink() // 空状态不显示任何提示
+                ? const SizedBox.shrink()
                 : _buildMessageList(provider, messages),
           ),
           _buildInputArea(provider),
@@ -87,21 +106,17 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  /// 消息列表（原生自底向上排列，默认即在底部，无需延时瞬移）
+  /// 消息列表（从顶部按时间顺序正常向下排列）
   Widget _buildMessageList(AppStateProvider provider, List<ChatMessageModel> messages) {
-    // 获取屏幕宽度用于限制气泡宽度
     final screenWidth = MediaQuery.of(context).size.width;
     final maxBubbleWidth = screenWidth * 0.7;
-    final reversedMessages = messages.reversed.toList();
 
     return ListView.builder(
-      key: ValueKey(provider.activeSessionId),
       controller: _scrollController,
-      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      itemCount: reversedMessages.length,
+      itemCount: messages.length,
       itemBuilder: (context, index) {
-        final message = reversedMessages[index];
+        final message = messages[index];
         final isUser = message.role == MessageRole.user;
 
         return Padding(
@@ -124,27 +139,114 @@ class _ChatViewState extends State<ChatView> {
               Flexible(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isUser ? AgentHubTheme.primaryRedLight : AgentHubTheme.cardBackground,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AgentHubTheme.border),
-                    ),
-                    child: isUser
-                        ? Text(message.content, style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, height: 1.5, fontWeight: FontWeight.w500))
-                        : MarkdownBody(
-                            data: message.content,
-                            styleSheet: MarkdownStyleSheet(
-                              p: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, height: 1.6, fontWeight: FontWeight.w500),
-                              code: TextStyle(backgroundColor: AgentHubTheme.pillBackground, color: AgentHubTheme.titleRed, fontSize: 12, fontWeight: FontWeight.w600),
-                              codeblockDecoration: BoxDecoration(
-                                color: AgentHubTheme.pillBackground,
-                                borderRadius: BorderRadius.circular(8),
+                  child: Column(
+                    crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isUser ? AgentHubTheme.primaryRedLight : AgentHubTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: message.status == MessageStatus.error ? AgentHubTheme.primaryRed : AgentHubTheme.border),
+                        ),
+                        child: isUser
+                            ? Text(
+                                message.content,
+                                style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, height: 1.5, fontWeight: FontWeight.w500),
+                              )
+                            : MarkdownBody(
+                                selectable: false,
+                                data: message.content,
+                                styleSheet: MarkdownStyleSheet(
+                                  p: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, height: 1.6, fontWeight: FontWeight.w500),
+                                  h1: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                                  h2: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+                                  h3: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                                  code: TextStyle(backgroundColor: AgentHubTheme.pillBackground, color: AgentHubTheme.titleRed, fontSize: 12, fontWeight: FontWeight.w600),
+                                  codeblockDecoration: BoxDecoration(
+                                    color: AgentHubTheme.pillBackground,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AgentHubTheme.border),
+                                  ),
+                                  blockquoteDecoration: BoxDecoration(
+                                    color: AgentHubTheme.pillBackground,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: const Border(
+                                      left: BorderSide(color: AgentHubTheme.primaryRed, width: 3),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: message.content));
+                              setState(() => _copiedMessageId = message.id);
+                              Future.delayed(const Duration(milliseconds: 1500), () {
+                                if (mounted && _copiedMessageId == message.id) {
+                                  setState(() => _copiedMessageId = null);
+                                }
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AgentHubTheme.cardBackground,
+                                borderRadius: BorderRadius.circular(6),
                                 border: Border.all(color: AgentHubTheme.border),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _copiedMessageId == message.id ? Icons.check : Icons.content_copy_outlined,
+                                    size: 13,
+                                    color: _copiedMessageId == message.id ? AgentHubTheme.statusGreen : AgentHubTheme.textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _copiedMessageId == message.id ? '已复制' : '复制',
+                                    style: TextStyle(
+                                      color: _copiedMessageId == message.id ? AgentHubTheme.statusGreen : AgentHubTheme.textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
+                          if (!isUser && message.status == MessageStatus.error) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: provider.isBusy ? null : () => provider.retryLastMessage(),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AgentHubTheme.cardBackground,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AgentHubTheme.primaryRed.withValues(alpha: 0.5)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.refresh, size: 13, color: AgentHubTheme.primaryRed),
+                                    const SizedBox(width: 4),
+                                    Text('重试', style: TextStyle(color: AgentHubTheme.primaryRed, fontSize: 11, fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -166,15 +268,22 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  /// 底部输入区（支持 Enter 发送，Shift+Enter 换行）
+  /// 底部输入区（支持 Enter 发送，Shift+Enter 换行；微信会话自动禁用）
   Widget _buildInputArea(AppStateProvider provider) {
+    final activeSession = provider.sessions.cast<ChatSessionModel?>().firstWhere(
+      (s) => s?.id == provider.activeSessionId,
+      orElse: () => null,
+    );
+    final isWechatSession = activeSession?.channel == 'wechat';
+    final isInputDisabled = provider.isBusy || isWechatSession;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       color: AgentHubTheme.background,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: AgentHubTheme.cardBackground,
+          color: isWechatSession ? AgentHubTheme.background : AgentHubTheme.cardBackground,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AgentHubTheme.border),
         ),
@@ -184,7 +293,9 @@ class _ChatViewState extends State<ChatView> {
             Expanded(
               child: Focus(
                 onKeyEvent: (node, event) {
-                  // Enter 发送消息，Shift+Enter 换行
+                  if (isInputDisabled) {
+                    return KeyEventResult.ignored;
+                  }
                   if (event is KeyDownEvent &&
                       event.logicalKey == LogicalKeyboardKey.enter &&
                       !HardwareKeyboard.instance.isShiftPressed) {
@@ -196,12 +307,16 @@ class _ChatViewState extends State<ChatView> {
                 child: TextField(
                   controller: _inputController,
                   focusNode: _inputFocusNode,
-                  enabled: !provider.isBusy,
+                  enabled: !isInputDisabled,
                   maxLines: 4,
                   minLines: 1,
-                  style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: isWechatSession ? AgentHubTheme.textTertiary : AgentHubTheme.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                   decoration: InputDecoration(
-                    hintText: '输入内容...',
+                    hintText: isWechatSession ? '微信会话暂不支持输入' : '输入内容...',
                     hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
                     filled: false,
                     fillColor: Colors.transparent,
@@ -230,15 +345,20 @@ class _ChatViewState extends State<ChatView> {
               const SizedBox(width: 8),
             ],
             ElevatedButton(
-              onPressed: provider.isBusy ? null : _handleSend,
+              onPressed: isInputDisabled ? null : _handleSend,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AgentHubTheme.primaryRed,
-                foregroundColor: Colors.white,
+                backgroundColor: isWechatSession ? AgentHubTheme.pillBackground : AgentHubTheme.primaryRed,
+                foregroundColor: isWechatSession ? AgentHubTheme.textTertiary : Colors.white,
+                disabledBackgroundColor: AgentHubTheme.pillBackground,
+                disabledForegroundColor: AgentHubTheme.textTertiary,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              child: Text(provider.isBusy ? '处理中' : '发送', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              child: Text(
+                provider.isBusy ? '处理中' : '发送',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),

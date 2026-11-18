@@ -16,6 +16,7 @@ import '../services/agent_service.dart';
 import '../services/cron_scheduler_service.dart';
 import '../services/gateway_server.dart';
 import '../services/tray_service.dart';
+import '../services/wechat_channel_service.dart';
 import '../theme/agenthub_theme.dart';
 
 /// 全局应用状态管理
@@ -63,6 +64,10 @@ class AppStateProvider extends ChangeNotifier {
   List<ChatSessionModel> get sessions => _sessions;
   String? get activeSessionId => _activeSessionId;
   bool get isDarkTheme => _config.themeMode == 'dark';
+  WechatChannelService get wechatService => WechatChannelService.instance;
+
+  /// 全局未读消息总数
+  int get totalUnreadCount => _sessions.fold(0, (sum, s) => sum + s.unreadCount);
 
   /// 当前活跃会话的消息列表
   List<ChatMessageModel> get messages {
@@ -118,6 +123,28 @@ class AppStateProvider extends ChangeNotifier {
     // 启动真实 Cron 调度
     _syncCronScheduler();
 
+    // 监听微信通道状态变更并绑定持久化存储
+    WechatChannelService.instance.addListener(notifyListeners);
+    WechatChannelService.instance.onAuthenticated = (token, name) async {
+      await _dbService.saveWechatToken(token, name);
+    };
+
+    if (_config.wechatChannelEnabled) {
+      final savedAuth = await _dbService.loadWechatToken();
+      final savedToken = savedAuth['botToken'];
+      final savedName = savedAuth['botName'] ?? '微信助手';
+      if (savedToken != null && savedToken.isNotEmpty) {
+        await WechatChannelService.instance.restoreSession(
+          botToken: savedToken,
+          botName: savedName,
+          autoReply: _config.wechatAutoReply,
+          onMessage: _handleInboundWechatMessage,
+        );
+      } else {
+        await startWechatChannel();
+      }
+    }
+
     _updateTrayMenu();
     notifyListeners();
   }
@@ -155,10 +182,28 @@ class AppStateProvider extends ChangeNotifier {
   /// 切换到指定会话
   void switchSession(String sessionId) {
     if (_activeSessionId == sessionId) {
+      final session = _sessions.cast<ChatSessionModel?>().firstWhere(
+        (s) => s?.id == sessionId,
+        orElse: () => null,
+      );
+      if (session != null && session.unreadCount > 0) {
+        session.unreadCount = 0;
+        _dbService.markSessionAsRead(sessionId);
+        notifyListeners();
+      }
       return;
     }
     _activeSessionId = sessionId;
     _currentTabIndex = 0;
+
+    final session = _sessions.cast<ChatSessionModel?>().firstWhere(
+      (s) => s?.id == sessionId,
+      orElse: () => null,
+    );
+    if (session != null && session.unreadCount > 0) {
+      session.unreadCount = 0;
+      _dbService.markSessionAsRead(sessionId);
+    }
     notifyListeners();
   }
 
@@ -180,6 +225,70 @@ class AppStateProvider extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  /// 重命名指定会话标题
+  Future<void> renameSession(String sessionId, String newTitle) async {
+    final trimmed = newTitle.trim();
+    if (trimmed.isEmpty) return;
+
+    final session = _sessions.cast<ChatSessionModel?>().firstWhere(
+      (s) => s?.id == sessionId,
+      orElse: () => null,
+    );
+    if (session != null) {
+      session.title = trimmed;
+      session.updatedAt = DateTime.now();
+      await _dbService.updateSession(session);
+      notifyListeners();
+    }
+  }
+
+  /// 重试上一条失败的用户消息
+  Future<void> retryLastMessage() async {
+    if (_isBusy || _activeSessionId == null) return;
+
+    final session = _sessions.cast<ChatSessionModel?>().firstWhere(
+      (s) => s?.id == _activeSessionId,
+      orElse: () => null,
+    );
+    if (session == null || session.messages.isEmpty) return;
+
+    // 找到最后一条用户消息
+    ChatMessageModel? lastUserMsg;
+    for (int i = session.messages.length - 1; i >= 0; i--) {
+      if (session.messages[i].role == MessageRole.user) {
+        lastUserMsg = session.messages[i];
+        break;
+      }
+    }
+    if (lastUserMsg == null) return;
+
+    // 如果最后一条是 assistant 的错误消息，先从列表中移除
+    if (session.messages.isNotEmpty && session.messages.last.role == MessageRole.assistant) {
+      session.messages.removeLast();
+      await _dbService.clearSessionMessages(_activeSessionId!);
+      // 重新把剩余的消息写回
+      for (final m in session.messages) {
+        await _dbService.saveMessage(_activeSessionId!, m);
+      }
+    }
+
+    // 重新发起请求
+    await sendMessage(lastUserMsg.content);
+  }
+
+  /// 清空全部会话与消息历史记录
+  Future<void> resetAllSessions() async {
+    await _dbService.resetAllSessions();
+    _sessions.clear();
+    _activeSessionId = null;
+    await createNewSession();
+  }
+
+  /// 全局模糊检索消息历史
+  Future<List<Map<String, dynamic>>> searchMessages(String query) async {
+    return await _dbService.searchMessages(query);
   }
 
   /// 清空当前会话的消息
@@ -405,11 +514,27 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 更新已有计划任务
+  Future<void> updateTask(ScheduledTaskModel task) async {
+    task.nextRun = _cronService.calculateNextRun(task.schedule);
+    await _dbService.saveTask(task);
+    _tasks = await _dbService.loadTasks();
+    _syncCronScheduler();
+    notifyListeners();
+  }
+
   /// 删除指定计划任务
   Future<void> removeTask(String taskId) async {
     await _dbService.deleteTask(taskId);
     _tasks.removeWhere((t) => t.id == taskId);
     _syncCronScheduler();
+    notifyListeners();
+  }
+
+  /// 清空任务运行历史日志
+  Future<void> clearTaskLogs({String? taskId}) async {
+    await _dbService.clearTaskLogs(taskId: taskId);
+    _taskLogs = await _dbService.loadTaskLogs();
     notifyListeners();
   }
 
@@ -573,6 +698,12 @@ class AppStateProvider extends ChangeNotifier {
         ? MessageStatus.done
         : assistantMessage.status;
     await _dbService.saveMessage(_activeSessionId!, assistantMessage);
+
+    // 若当前为微信渠道会话，将生成的回复推送回手机微信端
+    if (session.channel == 'wechat' && assistantMessage.content.isNotEmpty) {
+      final wxUserId = session.id.replaceFirst(RegExp(r'^wx_'), '');
+      await WechatChannelService.instance.sendReply(wxUserId, assistantMessage.content);
+    }
 
     // 解析 AI 回复中的定时任务注册指令
     await _tryRegisterTaskFromAiResponse(assistantMessage.content);
@@ -821,5 +952,136 @@ class AppStateProvider extends ChangeNotifier {
         await addTask(newTask);
       }
     }
+  }
+
+  // ==================== 微信通道管理 ====================
+
+  /// 启动微信通道
+  Future<void> startWechatChannel() async {
+    final savedAuth = await _dbService.loadWechatToken();
+    final savedToken = savedAuth['botToken'];
+    final savedName = savedAuth['botName'] ?? '微信助手';
+    if (savedToken != null && savedToken.isNotEmpty) {
+      await WechatChannelService.instance.restoreSession(
+        botToken: savedToken,
+        botName: savedName,
+        autoReply: _config.wechatAutoReply,
+        onMessage: _handleInboundWechatMessage,
+      );
+    } else {
+      await WechatChannelService.instance.start(
+        autoReply: _config.wechatAutoReply,
+        onMessage: _handleInboundWechatMessage,
+      );
+    }
+    notifyListeners();
+  }
+
+  /// 刷新获取全新微信登录二维码（强制重置凭证并重新扫码）
+  Future<void> refreshWechatQrCode() async {
+    await _dbService.clearWechatToken();
+    await WechatChannelService.instance.refreshQrCode();
+    notifyListeners();
+  }
+
+  /// 停止微信通道并清除持久化凭证
+  Future<void> stopWechatChannel() async {
+    await WechatChannelService.instance.stop();
+    await _dbService.clearWechatToken();
+    notifyListeners();
+  }
+
+  /// 切换微信通道启用开关
+  Future<void> toggleWechatChannel(bool enabled) async {
+    _config.wechatChannelEnabled = enabled;
+    await _dbService.saveConfig(_config);
+    if (enabled) {
+      await startWechatChannel();
+    } else {
+      await stopWechatChannel();
+    }
+    notifyListeners();
+  }
+
+  /// 切换微信自动回复功能开关
+  Future<void> setWechatAutoReply(bool enabled) async {
+    _config.wechatAutoReply = enabled;
+    await _dbService.saveConfig(_config);
+    WechatChannelService.instance.setAutoReply(enabled);
+    notifyListeners();
+  }
+
+  /// 处理微信入站消息
+  Future<String?> _handleInboundWechatMessage(
+    String senderId,
+    String senderName,
+    String messageText,
+  ) async {
+    final sessionId = 'wx_$senderId';
+    var session = _sessions.cast<ChatSessionModel?>().firstWhere(
+      (s) => s?.id == sessionId,
+      orElse: () => null,
+    );
+
+    if (session == null) {
+      session = ChatSessionModel(
+        id: sessionId,
+        title: '$senderName (微信)',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        channel: 'wechat',
+        unreadCount: 0,
+      );
+      await _dbService.insertSession(session);
+      _sessions.insert(0, session);
+    }
+
+    final userMsg = ChatMessageModel(
+      id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+      role: MessageRole.user,
+      content: messageText,
+      timestamp: DateTime.now(),
+    );
+    session.messages.add(userMsg);
+    session.updatedAt = DateTime.now();
+
+    // 如果未处于该会话，未读计数加一
+    if (_activeSessionId != session.id) {
+      session.unreadCount++;
+    }
+    await _dbService.saveMessage(session.id, userMsg);
+    await _dbService.updateSession(session);
+    notifyListeners();
+
+    // 若开启自动回复，调用模型生成文本回复
+    if (!_config.wechatAutoReply) {
+      return null;
+    }
+
+    try {
+      final replyText = await _agentService.sendMessage(
+        config: _config,
+        history: session.messages,
+        activeSkills: _skills,
+        userPrompt: messageText,
+      );
+
+      if (replyText.isNotEmpty) {
+        final assistantMsg = ChatMessageModel(
+          id: 'msg_${DateTime.now().millisecondsSinceEpoch}_reply',
+          role: MessageRole.assistant,
+          content: replyText,
+          timestamp: DateTime.now(),
+        );
+        session.messages.add(assistantMsg);
+        session.updatedAt = DateTime.now();
+        await _dbService.saveMessage(session.id, assistantMsg);
+        await _dbService.updateSession(session);
+        notifyListeners();
+        return replyText;
+      }
+    } catch (_) {}
+
+    return null;
   }
 }

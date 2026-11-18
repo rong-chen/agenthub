@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 import '../providers/app_state_provider.dart';
+import '../services/wechat_channel_service.dart';
 import '../theme/agenthub_theme.dart';
 import 'chat_view.dart';
 import 'tasks_view.dart';
@@ -76,6 +78,64 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           ),
         ],
       ),
+    );
+  }
+
+  /// 会话重命名弹窗
+  void _showRenameDialog(BuildContext context, AppStateProvider provider, String sessionId, String currentTitle) {
+    final titleCtrl = TextEditingController(text: currentTitle);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AgentHubTheme.cardBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AgentHubTheme.border)),
+          title: Text('重命名会话', style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 380,
+            child: TextField(
+              controller: titleCtrl,
+              autofocus: true,
+              style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AgentHubTheme.background,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AgentHubTheme.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AgentHubTheme.border)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AgentHubTheme.primaryRed)),
+              ),
+              onSubmitted: (val) {
+                if (val.trim().isNotEmpty) {
+                  provider.renameSession(sessionId, val.trim());
+                  Navigator.of(ctx).pop();
+                }
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('取消', style: TextStyle(color: AgentHubTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final text = titleCtrl.text.trim();
+                if (text.isNotEmpty) {
+                  provider.renameSession(sessionId, text);
+                  Navigator.of(ctx).pop();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AgentHubTheme.primaryRed,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -158,6 +218,217 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     );
   }
 
+  /// 微信通道管理与扫码弹窗
+  void _showWechatChannelDialog(BuildContext context, AppStateProvider provider) {
+    if (!provider.wechatService.isRunning && provider.config.wechatChannelEnabled) {
+      provider.refreshWechatQrCode();
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Consumer<AppStateProvider>(
+          builder: (context, p, child) {
+            final wechat = p.wechatService;
+            final isRunning = wechat.isRunning;
+            final isWaitingScan = wechat.status == WechatChannelStatus.waitingScan;
+            final isGettingQr = wechat.status == WechatChannelStatus.gettingQr;
+
+            return AlertDialog(
+              backgroundColor: AgentHubTheme.cardBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: AgentHubTheme.border),
+              ),
+              title: Row(
+                children: [
+                  Icon(Icons.forum_outlined, size: 20, color: const Color(0xFF07C160)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '微信通道接入',
+                    style: TextStyle(
+                      color: AgentHubTheme.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: isRunning
+                          ? AgentHubTheme.statusGreen
+                          : (isWaitingScan ? AgentHubTheme.primaryRed : AgentHubTheme.statusGray),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isRunning
+                        ? '已连接'
+                        : (isWaitingScan ? '等待扫码' : (isGettingQr ? '获取二维码' : '未连接')),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isRunning ? AgentHubTheme.statusGreen : AgentHubTheme.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '启用微信通道',
+                          style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: p.config.wechatChannelEnabled,
+                          activeThumbColor: const Color(0xFF07C160),
+                          onChanged: (val) async {
+                            await p.toggleWechatChannel(val);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          '微信消息自动回复',
+                          style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: p.config.wechatAutoReply,
+                          activeThumbColor: const Color(0xFF07C160),
+                          onChanged: (val) async {
+                            await p.setWechatAutoReply(val);
+                          },
+                        ),
+                      ],
+                    ),
+                    Divider(height: 20, color: AgentHubTheme.divider),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AgentHubTheme.background,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AgentHubTheme.border),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isGettingQr) ...[
+                            const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '正在请求微信登录二维码...',
+                              style: TextStyle(color: AgentHubTheme.textSecondary, fontSize: 12),
+                            ),
+                          ] else if (isWaitingScan && wechat.qrCodeText != null && wechat.qrCodeText!.isNotEmpty) ...[
+                            Container(
+                              width: 180,
+                              height: 180,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: QrImageView(
+                                data: wechat.qrCodeText!,
+                                version: QrVersions.auto,
+                                size: 160.0,
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '请使用微信扫描上方二维码确认登录',
+                              style: TextStyle(color: AgentHubTheme.textSecondary, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '有效时间还剩 ${wechat.qrCodeRemainingSeconds} 秒',
+                              style: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 11),
+                            ),
+                          ] else if (isRunning) ...[
+                            Icon(Icons.check_circle_outline, size: 36, color: AgentHubTheme.statusGreen),
+                            const SizedBox(height: 8),
+                            Text(
+                              '已成功接入微信',
+                              style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '账号: ${wechat.accountName ?? "微信用户"}',
+                              style: TextStyle(color: AgentHubTheme.textSecondary, fontSize: 12),
+                            ),
+                          ] else ...[
+                            Icon(Icons.qr_code_2_outlined, size: 40, color: AgentHubTheme.textTertiary),
+                            const SizedBox(height: 8),
+                            Text(
+                              p.config.wechatChannelEnabled
+                                  ? (wechat.lastError ?? '请点击下方按钮获取最新二维码')
+                                  : '微信通道当前未启用，开启上方开关即可开始接入',
+                              style: TextStyle(color: AgentHubTheme.textSecondary, fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (p.config.wechatChannelEnabled && !isRunning)
+                  OutlinedButton(
+                    onPressed: () async {
+                      await p.refreshWechatQrCode();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AgentHubTheme.textPrimary,
+                      side: BorderSide(color: AgentHubTheme.border),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('重新获取二维码'),
+                  ),
+                if (isRunning)
+                  OutlinedButton(
+                    onPressed: () async {
+                      await p.stopWechatChannel();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AgentHubTheme.primaryRed,
+                      side: const BorderSide(color: AgentHubTheme.primaryRed),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('断开连接'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text('关闭', style: TextStyle(color: AgentHubTheme.textSecondary)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   /// 顶栏工具行
   Widget _buildTopBar(BuildContext context, AppStateProvider provider) {
     return Container(
@@ -194,6 +465,41 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             ),
           ),
           const Spacer(),
+          // 微信通道快捷入口
+          InkWell(
+            onTap: () => _showWechatChannelDialog(context, provider),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: AgentHubTheme.cardBackground,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AgentHubTheme.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.forum_outlined,
+                    size: 15,
+                    color: provider.wechatService.isRunning
+                        ? const Color(0xFF07C160)
+                        : AgentHubTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    provider.wechatService.isRunning ? '微信在线' : '微信通道',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: provider.wechatService.isRunning
+                          ? const Color(0xFF07C160)
+                          : AgentHubTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           if (provider.currentTabIndex == 0 && provider.messages.isNotEmpty) ...[
             InkWell(
               onTap: () => provider.clearChatHistory(),
@@ -249,8 +555,20 @@ class _HomeViewState extends State<HomeView> with WindowListener {
         children: [
           _buildSidebarHeader(provider),
           const SizedBox(height: 8),
-          _buildNavItem(1, Icons.alarm_outlined, '定时任务', provider, badgeCount: provider.tasks.where((t) => t.isEnabled).length),
-          _buildNavItem(2, Icons.extension_outlined, '插件', provider, badgeCount: provider.skills.length),
+          _buildNavItem(
+            1,
+            Icons.alarm_outlined,
+            '定时任务',
+            provider,
+            badgeCount: provider.tasks.where((t) => t.isEnabled).length,
+          ),
+          _buildNavItem(
+            2,
+            Icons.extension_outlined,
+            '插件',
+            provider,
+            badgeCount: provider.skills.length,
+          ),
           _buildNavItem(3, Icons.settings_outlined, '设置', provider),
           const SizedBox(height: 12),
           Padding(
@@ -368,6 +686,19 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           child: Row(
             children: [
               Text('会话', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AgentHubTheme.textSecondary)),
+              const SizedBox(width: 6),
+              if (provider.totalUnreadCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AgentHubTheme.primaryRed,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '未读 ${provider.totalUnreadCount}',
+                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
               const Spacer(),
               InkWell(
                 onTap: () async {
@@ -391,7 +722,9 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                   itemCount: sessions.length,
                   itemBuilder: (context, index) {
                     final session = sessions[index];
-                    final isActive = session.id == provider.activeSessionId && provider.currentTabIndex == 0;
+                    final isActive = session.id == provider.activeSessionId;
+                    final isWechat = session.channel == 'wechat';
+                    final unread = session.unreadCount;
 
                     return InkWell(
                       onTap: () {
@@ -408,6 +741,14 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                         ),
                         child: Row(
                           children: [
+                            Icon(
+                              isWechat ? Icons.forum_outlined : Icons.chat_bubble_outline,
+                              size: 13,
+                              color: isWechat
+                                  ? const Color(0xFF07C160)
+                                  : (isActive ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary),
+                            ),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 session.title,
@@ -420,11 +761,46 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                                 maxLines: 1,
                               ),
                             ),
-                            if (isActive)
+                            const SizedBox(width: 4),
+                            // 图标与名称右侧：未读数量角标（选中时不显示已读字样）
+                            if (unread > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AgentHubTheme.primaryRed,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '$unread',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              )
+                            else if (!isActive)
+                              Text(
+                                '已读',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AgentHubTheme.textTertiary,
+                                ),
+                              ),
+                            if (isActive) ...[
+                              const SizedBox(width: 6),
+                              InkWell(
+                                onTap: () => _showRenameDialog(context, provider, session.id, session.title),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: Icon(Icons.edit_outlined, size: 13, color: AgentHubTheme.textTertiary),
+                                ),
+                              ),
                               InkWell(
                                 onTap: () => provider.deleteSession(session.id),
                                 child: Icon(Icons.close, size: 14, color: AgentHubTheme.textTertiary),
                               ),
+                            ],
                           ],
                         ),
                       ),

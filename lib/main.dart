@@ -18,41 +18,71 @@ void main() async {
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
     try {
       await windowManager.ensureInitialized();
-      await windowManager.setPreventClose(true);
-      await windowManager.show();
-      await windowManager.focus();
+
+      const WindowOptions windowOptions = WindowOptions(
+        size: Size(1440, 900),
+        minimumSize: Size(960, 600),
+        center: true,
+        backgroundColor: Colors.transparent,
+        skipTaskbar: false,
+        title: 'AgentHub',
+      );
+
+      await windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.setPreventClose(true);
+        await windowManager.center();
+        await windowManager.show();
+        await windowManager.focus();
+      });
 
       // 初始化系统托盘
       await TrayService.instance.initTray();
     } catch (_) {}
   }
 
+  // 预先从 SQLite 加载全局配置（确保第一帧即采用用户保存的明暗主题）
+  final appState = AppStateProvider();
+  await appState.initialize();
+
   // 启动应用根组件
-  runApp(const AgentHubApp());
+  runApp(AgentHubApp(provider: appState));
 }
 
 /// 应用程序根组件
 class AgentHubApp extends StatelessWidget {
-  const AgentHubApp({super.key});
+  final AppStateProvider? provider;
+  const AgentHubApp({super.key, this.provider});
 
   @override
   Widget build(BuildContext context) {
+    if (provider != null) {
+      return ChangeNotifierProvider.value(
+        value: provider!,
+        child: const _AgentHubAppBody(),
+      );
+    }
     return ChangeNotifierProvider(
       create: (_) => AppStateProvider()..initialize(),
-      child: Consumer<AppStateProvider>(
-        builder: (context, provider, _) {
-          final isDark = provider.isDarkTheme;
-          // 同步全局主题模式
-          AgentHubTheme.isDark = isDark;
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-            theme: AgentHubTheme.buildTheme(false),
-            darkTheme: AgentHubTheme.buildTheme(true),
-            home: const HomeView(),
-          );
-        },
-      ),
+      child: const _AgentHubAppBody(),
+    );
+  }
+}
+
+class _AgentHubAppBody extends StatelessWidget {
+  const _AgentHubAppBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AppStateProvider>();
+    final isDark = provider.isDarkTheme;
+    // 同步全局主题模式
+    AgentHubTheme.isDark = isDark;
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      theme: AgentHubTheme.buildTheme(false),
+      darkTheme: AgentHubTheme.buildTheme(true),
+      home: const HomeView(),
     );
   }
 }

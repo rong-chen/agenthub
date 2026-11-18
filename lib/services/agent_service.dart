@@ -40,7 +40,9 @@ class AgentService {
       {'role': 'system', 'content': systemPrompt},
     ];
 
-    for (final m in history) {
+    // 滑动窗口控制，保留最近 20 条历史消息
+    final trimmedHistory = history.length > 20 ? history.sublist(history.length - 20) : history;
+    for (final m in trimmedHistory) {
       messagesPayload.add({
         'role': m.role.name,
         'content': m.content,
@@ -56,6 +58,8 @@ class AgentService {
       'model': config.modelName.trim().isNotEmpty ? config.modelName.trim() : 'gpt-4o-mini',
       'messages': messagesPayload,
       'stream': false,
+      'temperature': config.temperature,
+      'top_p': config.topP,
     });
 
     try {
@@ -116,7 +120,9 @@ class AgentService {
       {'role': 'system', 'content': systemPrompt},
     ];
 
-    for (final m in history) {
+    // 滑动窗口控制，保留最近 20 条历史消息
+    final trimmedHistory = history.length > 20 ? history.sublist(history.length - 20) : history;
+    for (final m in trimmedHistory) {
       messagesPayload.add({
         'role': m.role.name,
         'content': m.content,
@@ -137,6 +143,8 @@ class AgentService {
       'model': config.modelName.trim().isNotEmpty ? config.modelName.trim() : 'gpt-4o-mini',
       'messages': messagesPayload,
       'stream': true,
+      'temperature': config.temperature,
+      'top_p': config.topP,
     });
 
     http.StreamedResponse streamedResponse;
