@@ -18,7 +18,6 @@ class _ChatViewState extends State<ChatView> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
-  String? _lastSessionId;
   bool _isUserSending = false;
 
   @override
@@ -45,26 +44,15 @@ class _ChatViewState extends State<ChatView> {
     _animateToBottom();
   }
 
-  /// 瞬时定位到底部（进入对话或切换会话时使用，无滚动动画）
-  void _jumpToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) {
-        return;
-      }
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-    });
-  }
-
   /// 发送新消息时的平滑动画滚动
   void _animateToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
         return;
       }
-      final target = _scrollController.position.maxScrollExtent;
-      if ((_scrollController.offset - target).abs() > 1.0) {
+      if (_scrollController.offset > 1.0) {
         _scrollController.animateTo(
-          target,
+          0.0,
           duration: const Duration(milliseconds: 320),
           curve: Curves.easeOutCubic,
         );
@@ -78,11 +66,7 @@ class _ChatViewState extends State<ChatView> {
     AgentHubTheme.isDark = provider.isDarkTheme;
     final messages = provider.messages;
 
-    // 进入对话或切换会话：直接瞬时定位到底部，绝无滚动动画
-    if (provider.activeSessionId != _lastSessionId) {
-      _lastSessionId = provider.activeSessionId;
-      _jumpToBottom();
-    } else if (_isUserSending) {
+    if (_isUserSending) {
       _isUserSending = false;
       _animateToBottom();
     }
@@ -95,7 +79,7 @@ class _ChatViewState extends State<ChatView> {
           Expanded(
             child: messages.isEmpty
                 ? const SizedBox.shrink() // 空状态不显示任何提示
-                : _buildMessageList(messages),
+                : _buildMessageList(provider, messages),
           ),
           _buildInputArea(provider),
         ],
@@ -103,22 +87,25 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  /// 消息列表
-  Widget _buildMessageList(List<ChatMessageModel> messages) {
+  /// 消息列表（原生自底向上排列，默认即在底部，无需延时瞬移）
+  Widget _buildMessageList(AppStateProvider provider, List<ChatMessageModel> messages) {
     // 获取屏幕宽度用于限制气泡宽度
     final screenWidth = MediaQuery.of(context).size.width;
     final maxBubbleWidth = screenWidth * 0.7;
+    final reversedMessages = messages.reversed.toList();
 
     return ListView.builder(
+      key: ValueKey(provider.activeSessionId),
       controller: _scrollController,
+      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      itemCount: messages.length,
+      itemCount: reversedMessages.length,
       itemBuilder: (context, index) {
-        final message = messages[index];
+        final message = reversedMessages[index];
         final isUser = message.role == MessageRole.user;
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
