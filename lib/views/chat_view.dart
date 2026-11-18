@@ -18,8 +18,8 @@ class _ChatViewState extends State<ChatView> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
-  int _lastMessageCount = 0;
   String? _lastSessionId;
+  bool _isUserSending = false;
 
   @override
   void dispose() {
@@ -39,6 +39,7 @@ class _ChatViewState extends State<ChatView> {
     if (provider.isBusy) {
       return;
     }
+    _isUserSending = true;
     provider.sendMessage(text);
     _inputController.clear();
     _animateToBottom();
@@ -51,16 +52,10 @@ class _ChatViewState extends State<ChatView> {
         return;
       }
       _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      // 下一帧再次校准，确保富文本完全布局后精准贴底
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
     });
   }
 
-  /// 发送或新消息到来时的平滑动画滚动
+  /// 发送新消息时的平滑动画滚动
   void _animateToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
@@ -83,17 +78,13 @@ class _ChatViewState extends State<ChatView> {
     AgentHubTheme.isDark = provider.isDarkTheme;
     final messages = provider.messages;
 
-    // 进入对话或切换会话：瞬时置底，不播放上方滚下的动画
+    // 进入对话或切换会话：直接瞬时定位到底部，绝无滚动动画
     if (provider.activeSessionId != _lastSessionId) {
       _lastSessionId = provider.activeSessionId;
-      _lastMessageCount = messages.length;
       _jumpToBottom();
-    } else if (messages.length > _lastMessageCount) {
-      // 发送消息或新消息到来：平滑动画滑向底部
-      _lastMessageCount = messages.length;
+    } else if (_isUserSending) {
+      _isUserSending = false;
       _animateToBottom();
-    } else if (messages.length < _lastMessageCount) {
-      _lastMessageCount = messages.length;
     }
 
     return Container(
