@@ -41,11 +41,27 @@ class _ChatViewState extends State<ChatView> {
     }
     provider.sendMessage(text);
     _inputController.clear();
-    _scrollToBottom();
+    _animateToBottom();
   }
 
-  /// 平滑动画滚动到最新消息位置
-  void _scrollToBottom() {
+  /// 瞬时定位到底部（进入对话或切换会话时使用，无滚动动画）
+  void _jumpToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      // 下一帧再次校准，确保富文本完全布局后精准贴底
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
+    });
+  }
+
+  /// 发送或新消息到来时的平滑动画滚动
+  void _animateToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
         return;
@@ -67,14 +83,15 @@ class _ChatViewState extends State<ChatView> {
     AgentHubTheme.isDark = provider.isDarkTheme;
     final messages = provider.messages;
 
-    // 会话切换或新消息到达时平滑滚动到底部
+    // 进入对话或切换会话：瞬时置底，不播放上方滚下的动画
     if (provider.activeSessionId != _lastSessionId) {
       _lastSessionId = provider.activeSessionId;
       _lastMessageCount = messages.length;
-      _scrollToBottom();
+      _jumpToBottom();
     } else if (messages.length > _lastMessageCount) {
+      // 发送消息或新消息到来：平滑动画滑向底部
       _lastMessageCount = messages.length;
-      _scrollToBottom();
+      _animateToBottom();
     } else if (messages.length < _lastMessageCount) {
       _lastMessageCount = messages.length;
     }
