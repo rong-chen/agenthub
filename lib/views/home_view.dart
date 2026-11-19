@@ -1,14 +1,19 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 import '../providers/app_state_provider.dart';
+import '../services/claude_profile_service.dart';
 import '../services/wechat_channel_service.dart';
 import '../theme/agenthub_theme.dart';
 import 'chat_view.dart';
+import 'claude_manager_view.dart';
 import 'tasks_view.dart';
 import 'skills_view.dart';
 import 'settings_view.dart';
+import 'trash_view.dart';
 
 /// 主窗口布局，包含左侧边栏与主工作区
 class HomeView extends StatefulWidget {
@@ -67,6 +72,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                     index: provider.currentTabIndex,
                     children: const [
                       ChatView(),
+                      ClaudeManagerView(),
                       TasksView(),
                       SkillsView(),
                       SettingsView(),
@@ -132,6 +138,141 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text('保存'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 弹出新建会话模式选择弹窗
+  void _showCreateSessionDialog(BuildContext context, AppStateProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AgentHubTheme.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: AgentHubTheme.border),
+          ),
+          title: Text(
+            '新建会话模式',
+            style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await provider.createNewSession(sessionMode: 'chat');
+                  provider.selectTab(0);
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AgentHubTheme.background,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AgentHubTheme.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AgentHubTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.chat_bubble_outline, color: AgentHubTheme.primaryRed, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('聊天模式', style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text('标准智能问答交互', style: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, size: 16, color: AgentHubTheme.textTertiary),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  String? selectedPath;
+                  try {
+                    final uri = await FilePicker.pickDirectory(dialogTitle: '选择工作目录');
+                    selectedPath = uri?.toFilePath();
+                  } catch (e) {
+                    debugPrint('选择目录失败: $e');
+                  }
+                  if (selectedPath == null || selectedPath.isEmpty) return;
+
+                  var cleanPath = selectedPath.trim();
+                  while ((cleanPath.endsWith('/') || cleanPath.endsWith(r'\')) && cleanPath.length > 1) {
+                    cleanPath = cleanPath.substring(0, cleanPath.length - 1);
+                  }
+                  final parts = cleanPath.split(Platform.pathSeparator);
+                  final dirName = parts.isNotEmpty && parts.last.isNotEmpty ? parts.last : '工程目录';
+                  final profiles = await ClaudeProfileService.instance.loadProfiles();
+                  final profileId = profiles.isNotEmpty ? profiles.first.id : null;
+
+                  await provider.createNewSession(
+                    sessionMode: 'code',
+                    workDir: cleanPath,
+                    profileId: profileId,
+                    title: '代码 - $dirName',
+                  );
+                  provider.selectTab(0);
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AgentHubTheme.background,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AgentHubTheme.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AgentHubTheme.cardBackground,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.terminal_outlined, color: AgentHubTheme.primaryRed, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('代码模式', style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text('绑定独立 Claude Code 实例，基于指定目录改代码', style: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, size: 16, color: AgentHubTheme.textTertiary),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('取消', style: TextStyle(color: AgentHubTheme.textSecondary)),
             ),
           ],
         );
@@ -557,19 +698,25 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           const SizedBox(height: 8),
           _buildNavItem(
             1,
+            Icons.terminal_outlined,
+            'Claude 工作台',
+            provider,
+          ),
+          _buildNavItem(
+            2,
             Icons.alarm_outlined,
             '定时任务',
             provider,
             badgeCount: provider.tasks.where((t) => t.isEnabled).length,
           ),
           _buildNavItem(
-            2,
+            3,
             Icons.extension_outlined,
             '插件',
             provider,
             badgeCount: provider.skills.length,
           ),
-          _buildNavItem(3, Icons.settings_outlined, '设置', provider),
+          _buildNavItem(4, Icons.settings_outlined, '设置', provider),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -615,10 +762,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             tooltip: '新建',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            onPressed: () async {
-              await provider.createNewSession();
-              provider.selectTab(0);
-            },
+            onPressed: () => _showCreateSessionDialog(context, provider),
           ),
         ],
       ),
@@ -701,10 +845,18 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                 ),
               const Spacer(),
               InkWell(
-                onTap: () async {
-                  await provider.createNewSession();
-                  provider.selectTab(0);
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TrashView()),
+                  );
                 },
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Icon(Icons.delete_outline, size: 14, color: AgentHubTheme.textTertiary),
+                ),
+              ),
+              InkWell(
+                onTap: () => _showCreateSessionDialog(context, provider),
                 child: Icon(Icons.add, size: 14, color: AgentHubTheme.textTertiary),
               ),
             ],
@@ -742,7 +894,9 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                         child: Row(
                           children: [
                             Icon(
-                              isWechat ? Icons.forum_outlined : Icons.chat_bubble_outline,
+                              isWechat
+                                  ? Icons.forum_outlined
+                                  : (session.isCodeMode ? Icons.terminal_outlined : Icons.chat_bubble_outline),
                               size: 13,
                               color: isWechat
                                   ? const Color(0xFF07C160)
@@ -750,18 +904,60 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                             ),
                             const SizedBox(width: 6),
                             Expanded(
-                              child: Text(
-                                session.title,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isActive ? AgentHubTheme.primaryRed : AgentHubTheme.textPrimary,
-                                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
+                              child: Row(
+                                children: [
+                                  if (session.isCodeMode) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      margin: const EdgeInsets.only(right: 4),
+                                      decoration: BoxDecoration(
+                                        color: isActive ? AgentHubTheme.primaryRed : AgentHubTheme.border,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(
+                                        '代码',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: isActive ? Colors.white : AgentHubTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      session.title,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isActive ? AgentHubTheme.primaryRed : AgentHubTheme.textPrimary,
+                                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 4),
+                            if (provider.isSessionBusy(session.id)) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AgentHubTheme.primaryRed.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  '运行中',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: AgentHubTheme.primaryRed,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
                             // 图标与名称右侧：未读数量角标（选中时不显示已读字样）
                             if (unread > 0)
                               Container(
@@ -797,7 +993,15 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                                 ),
                               ),
                               InkWell(
-                                onTap: () => provider.deleteSession(session.id),
+                                onTap: () {
+                                  provider.deleteSession(session.id);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('会话已移入回收站，7天后自动清理'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
                                 child: Icon(Icons.close, size: 14, color: AgentHubTheme.textTertiary),
                               ),
                             ],

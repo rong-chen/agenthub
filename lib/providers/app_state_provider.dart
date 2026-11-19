@@ -4,12 +4,18 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
+import '../models/attachment.dart';
+import '../models/checkpoint_model.dart';
+import '../models/claude_profile.dart';
 import '../models/gateway_config.dart';
 import '../models/chat_message_model.dart';
 import '../models/chat_session_model.dart';
 import '../models/skill_model.dart';
 import '../models/scheduled_task_model.dart';
 import '../models/task_log_model.dart';
+import '../services/claude_process_manager.dart';
+import '../services/claude_profile_service.dart';
+import '../services/checkpoint_service.dart';
 import '../services/database_service.dart';
 import '../services/skill_service.dart';
 import '../services/agent_service.dart';
@@ -24,11 +30,17 @@ class AppStateProvider extends ChangeNotifier {
   final DatabaseService _dbService = DatabaseService.instance;
   final SkillService _skillService = SkillService();
   final AgentService _agentService = AgentService();
+  final ClaudeProcessManager _processManager = ClaudeProcessManager.instance;
+  final ClaudeProfileService _profileService = ClaudeProfileService.instance;
+  final CheckpointService _checkpointService = CheckpointService.instance;
   final CronSchedulerService _cronService = CronSchedulerService.instance;
   late final GatewayServer _gatewayServer;
 
   int _currentTabIndex = 0;
-  bool _isBusy = false;
+  final Set<String> _busySessionIds = {};
+  final Set<String> _abortedSessionIds = {};
+  final Map<String, String> _sessionStreamMsgIds = {};
+
   bool _isGatewayOnline = false;
   String _gatewayStatusMessage = '未启动';
   GatewayConfig _config = GatewayConfig.initial();
@@ -40,8 +52,6 @@ class AppStateProvider extends ChangeNotifier {
   List<ChatSessionModel> _sessions = [];
   String? _activeSessionId;
 
-  String? _currentStreamSessionId;
-  bool _isCurrentAborted = false;
   WebSocket? _wsClient;
 
   AppStateProvider() {
@@ -52,7 +62,12 @@ class AppStateProvider extends ChangeNotifier {
   }
 
   int get currentTabIndex => _currentTabIndex;
-  bool get isBusy => _isBusy;
+
+  /// 检查指定会话是否正在运行任务
+  bool isSessionBusy(String? sessionId) => sessionId != null && _busySessionIds.contains(sessionId);
+
+  /// 当前活跃会话是否忙碌
+  bool get isBusy => isSessionBusy(_activeSessionId);
   bool get isGatewayOnline => _isGatewayOnline;
   bool get isGatewayRunning => _gatewayServer.isRunning;
   String get gatewayStatusMessage => _gatewayStatusMessage;
@@ -101,6 +116,12 @@ class AppStateProvider extends ChangeNotifier {
     final isDark = _config.themeMode == 'dark';
     AgentHubTheme.isDark = isDark;
     await _syncWindowTheme(isDark);
+
+    // 自动物理清理超过 7 天的软删除数据
+    try {
+      await _dbService.purgeExpiredSessions();
+      await _dbService.purgeExpiredInstances();
+    } catch (_) {}
 
     _sessions = await _dbService.loadSessions();
     _tasks = await _dbService.loadTasks();
@@ -163,19 +184,28 @@ class AppStateProvider extends ChangeNotifier {
 
   // ==================== 会话管理 ====================
 
-  /// 创建新会话，并自动切换到对话标签页
-  Future<void> createNewSession() async {
+  /// 创建新会话，支持聊天模式与代码模式，并自动切换到对话标签页
+  Future<void> createNewSession({
+    String sessionMode = 'chat',
+    String? workDir,
+    String? profileId,
+    String? title,
+  }) async {
     final now = DateTime.now();
+    final defaultTitle = sessionMode == 'code' ? '代码会话' : '新会话';
     final session = ChatSessionModel(
       id: 'session_${now.millisecondsSinceEpoch}',
-      title: '新会话',
+      title: title ?? defaultTitle,
       createdAt: now,
       updatedAt: now,
+      sessionMode: sessionMode,
+      workDir: workDir,
+      profileId: profileId,
     );
     await _dbService.insertSession(session);
     _sessions.insert(0, session);
     _activeSessionId = session.id;
-    _currentTabIndex = 0; // 保持在对话页
+    _currentTabIndex = 0; // 自动跳转到对话页
     notifyListeners();
   }
 
@@ -207,10 +237,10 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 删除指定会话，优先选中最靠近的相邻会话
+  /// 软删除指定会话，优先选中最靠近的相邻会话
   Future<void> deleteSession(String sessionId) async {
     final deleteIndex = _sessions.indexWhere((s) => s.id == sessionId);
-    await _dbService.deleteSession(sessionId);
+    await _dbService.softDeleteSession(sessionId);
     _sessions.removeWhere((s) => s.id == sessionId);
 
     if (_activeSessionId == sessionId) {
@@ -225,6 +255,31 @@ class AppStateProvider extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  /// 恢复指定软删除的会话
+  Future<void> restoreSession(String sessionId) async {
+    await _dbService.restoreSession(sessionId);
+    _sessions = await _dbService.loadSessions();
+    if (_activeSessionId == null && _sessions.isNotEmpty) {
+      _activeSessionId = _sessions.first.id;
+    }
+    notifyListeners();
+  }
+
+  /// 彻底物理删除会话
+  Future<void> hardDeleteSession(String sessionId) async {
+    await _dbService.deleteSession(sessionId);
+    _sessions = await _dbService.loadSessions();
+    if (_activeSessionId == sessionId) {
+      _activeSessionId = _sessions.isNotEmpty ? _sessions.first.id : null;
+    }
+    notifyListeners();
+  }
+
+  /// 读取已软删除的会话列表
+  Future<List<ChatSessionModel>> loadDeletedSessions() async {
+    return await _dbService.loadDeletedSessions();
   }
 
   /// 重命名指定会话标题
@@ -246,7 +301,7 @@ class AppStateProvider extends ChangeNotifier {
 
   /// 重试上一条失败的用户消息
   Future<void> retryLastMessage() async {
-    if (_isBusy || _activeSessionId == null) return;
+    if (isSessionBusy(_activeSessionId) || _activeSessionId == null) return;
 
     final session = _sessions.cast<ChatSessionModel?>().firstWhere(
       (s) => s?.id == _activeSessionId,
@@ -567,15 +622,23 @@ class AppStateProvider extends ChangeNotifier {
 
   // ==================== 消息收发 ====================
 
-  /// 发送用户消息并进行 WebSocket 实时流式交互
-  Future<void> sendMessage(String text) async {
+  /// 发送用户消息并进行实时流式交互（支持聊天模式与代码模式，支持多会话独立并行）
+  Future<void> sendMessage(String text, {List<Attachment> attachments = const [], String? targetSessionId}) async {
+    final currentSessionId = targetSessionId ?? _activeSessionId;
+    if (currentSessionId == null) {
+      return;
+    }
+    if (isSessionBusy(currentSessionId)) {
+      return;
+    }
+
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _isBusy || _activeSessionId == null) {
+    if (trimmed.isEmpty && attachments.isEmpty) {
       return;
     }
 
     final session = _sessions.cast<ChatSessionModel?>().firstWhere(
-      (s) => s?.id == _activeSessionId,
+      (s) => s?.id == currentSessionId,
       orElse: () => null,
     );
     if (session == null) {
@@ -583,21 +646,24 @@ class AppStateProvider extends ChangeNotifier {
     }
 
     final msgId = DateTime.now().millisecondsSinceEpoch.toString();
-    _currentStreamSessionId = msgId;
-    _isCurrentAborted = false;
+    _sessionStreamMsgIds[currentSessionId] = msgId;
+    _abortedSessionIds.remove(currentSessionId);
 
     final userMessage = ChatMessageModel(
       id: msgId,
       role: MessageRole.user,
-      content: trimmed,
+      content: trimmed.isNotEmpty ? trimmed : '发送了附件',
       timestamp: DateTime.now(),
       status: MessageStatus.done,
+      attachments: attachments.map((a) => a.fileName).toList(),
     );
     session.messages.add(userMessage);
-    await _dbService.saveMessage(_activeSessionId!, userMessage);
+    await _dbService.saveMessage(currentSessionId, userMessage);
 
     // 自动从首条用户消息更新会话标题
-    _autoUpdateSessionTitle(session, trimmed);
+    if (trimmed.isNotEmpty) {
+      _autoUpdateSessionTitle(session, trimmed);
+    }
 
     final assistantMsgId = '${msgId}_bot';
     final assistantMessage = ChatMessageModel(
@@ -609,8 +675,127 @@ class AppStateProvider extends ChangeNotifier {
     );
     session.messages.add(assistantMessage);
 
-    _isBusy = true;
+    _busySessionIds.add(currentSessionId);
     notifyListeners();
+
+    // 代码模式：调用绑定的独立 Claude Code 实例执行任务并实时流式输出
+    if (session.isCodeMode) {
+      final workDir = session.workDir ?? Directory.current.path;
+      try {
+        final profiles = await _profileService.loadProfiles();
+        ClaudeProfile? profile;
+        if (session.profileId != null) {
+          profile = profiles.cast<ClaudeProfile?>().firstWhere(
+            (p) => p?.id == session.profileId,
+            orElse: () => profiles.isNotEmpty ? profiles.first : null,
+          );
+        } else if (profiles.isNotEmpty) {
+          profile = profiles.first;
+        }
+
+        if (profile == null) {
+          assistantMessage.content = '未检测到可用配置，请先在【Claude 配置】中创建账号配置';
+          assistantMessage.status = MessageStatus.error;
+          await _dbService.saveMessage(currentSessionId, assistantMessage);
+          return;
+        }
+
+        final instance = await _processManager.getOrCreateInstanceForSession(
+          sessionId: session.id,
+          profile: profile,
+          workDir: workDir,
+        );
+
+        // 任务开始前捕获工作目录文件快照
+        await _checkpointService.capturePreState(
+          sessionId: session.id,
+          messageId: assistantMsgId,
+          workDir: workDir,
+        );
+
+        final stream = _processManager.executeTask(
+          instanceId: instance.id,
+          profile: profile,
+          prompt: trimmed.isNotEmpty ? trimmed : '请查阅上传的文件附件',
+          attachments: attachments,
+        );
+
+        await for (final event in stream) {
+          if (_abortedSessionIds.contains(currentSessionId)) {
+            assistantMessage.isThinking = false;
+            break;
+          }
+
+          if (event.isThinking) {
+            assistantMessage.isThinking = true;
+            if (event.thinking != null && event.thinking!.isNotEmpty) {
+              assistantMessage.thinking = (assistantMessage.thinking ?? '') + event.thinking!;
+            }
+          }
+
+          if (event.type == 'assistant' && event.content != null && event.content!.isNotEmpty) {
+            assistantMessage.isThinking = false;
+            final incoming = event.content!;
+            if (assistantMessage.content.isEmpty) {
+              assistantMessage.content = incoming;
+            } else if (!assistantMessage.content.contains(incoming)) {
+              assistantMessage.content = '${assistantMessage.content}\n\n$incoming';
+            }
+          } else if (event.type == 'result' && event.content != null && event.content!.isNotEmpty) {
+            assistantMessage.isThinking = false;
+            final incoming = event.content!;
+            if (assistantMessage.content.isEmpty) {
+              assistantMessage.content = incoming;
+            } else if (!assistantMessage.content.contains(incoming) && !incoming.contains(assistantMessage.content)) {
+              assistantMessage.content = '${assistantMessage.content}\n\n$incoming';
+            }
+          } else if (event.type == 'tool_use') {
+            assistantMessage.isThinking = false;
+            assistantMessage.toolName = event.toolName;
+            assistantMessage.toolInput = event.toolInput;
+          } else if (event.type == 'tool_result' || event.toolOutput != null) {
+            assistantMessage.toolOutput = event.toolOutput;
+          } else if (event.type == 'error') {
+            assistantMessage.isThinking = false;
+            assistantMessage.content = event.content ?? '执行异常';
+            assistantMessage.status = MessageStatus.error;
+          }
+          notifyListeners();
+        }
+      } catch (e) {
+        assistantMessage.isThinking = false;
+        assistantMessage.content = '执行出错: $e';
+        assistantMessage.status = MessageStatus.error;
+      } finally {
+        assistantMessage.isThinking = false;
+        if (assistantMessage.status != MessageStatus.error) {
+          assistantMessage.status = MessageStatus.done;
+        }
+
+        // 任务完成后对比文件生成 Checkpoint 快照
+        try {
+          final ckpt = await _checkpointService.finalizeCheckpoint(
+            sessionId: session.id,
+            messageId: assistantMsgId,
+            workDir: workDir,
+          );
+          if (ckpt != null) {
+            assistantMessage.checkpointId = ckpt.id;
+            assistantMessage.checkpoint = ckpt;
+          }
+        } catch (_) {}
+
+        session.tokensUsed += (assistantMessage.content.length / 2.5).round();
+        session.updatedAt = DateTime.now();
+        await _dbService.updateSession(session);
+        await _dbService.saveMessage(currentSessionId, assistantMessage);
+        _busySessionIds.remove(currentSessionId);
+        _abortedSessionIds.remove(currentSessionId);
+        _sessionStreamMsgIds.remove(currentSessionId);
+        notifyListeners();
+      }
+      return;
+    }
 
     // 本地命令支持与快速响应
     if (trimmed.startsWith('/run ') || trimmed.startsWith('运行插件 ') || trimmed.startsWith('运行 ')) {
@@ -690,14 +875,14 @@ class AppStateProvider extends ChangeNotifier {
       if (_isGatewayOnline) {
         await _sendViaWebSocket(msgId, trimmed, assistantMessage);
       } else {
-        await _sendViaDirectStream(msgId, trimmed, assistantMessage);
+        await _sendViaDirectStream(msgId, trimmed, assistantMessage, currentSessionId);
       }
     }
 
     assistantMessage.status = assistantMessage.status == MessageStatus.streaming
         ? MessageStatus.done
         : assistantMessage.status;
-    await _dbService.saveMessage(_activeSessionId!, assistantMessage);
+    await _dbService.saveMessage(currentSessionId, assistantMessage);
 
     // 若当前为微信渠道会话，将生成的回复推送回手机微信端
     if (session.channel == 'wechat' && assistantMessage.content.isNotEmpty) {
@@ -715,8 +900,9 @@ class AppStateProvider extends ChangeNotifier {
     // 刷新会话排序
     _sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
-    _isBusy = false;
-    _currentStreamSessionId = null;
+    _busySessionIds.remove(currentSessionId);
+    _abortedSessionIds.remove(currentSessionId);
+    _sessionStreamMsgIds.remove(currentSessionId);
     notifyListeners();
   }
 
@@ -829,10 +1015,13 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> _sendViaDirectStream(
     String sessionId,
     String prompt,
-    ChatMessageModel assistantMessage,
-  ) async {
+    ChatMessageModel assistantMessage, [
+    String? targetSessionId,
+  ]) async {
+    final sid = targetSessionId ?? _activeSessionId;
     final activeSkills = _skills.where((s) => s.isEnabled).toList();
-    final validHistory = messages
+    final session = sid != null ? _sessions.cast<ChatSessionModel?>().firstWhere((s) => s?.id == sid, orElse: () => null) : null;
+    final validHistory = (session != null ? session.messages : messages)
         .where((m) => m.id != assistantMessage.id && m.status == MessageStatus.done)
         .toList();
     final contentBuffer = StringBuffer();
@@ -842,7 +1031,7 @@ class AppStateProvider extends ChangeNotifier {
       history: validHistory,
       activeSkills: activeSkills,
       userPrompt: prompt,
-      isAborted: () => _isCurrentAborted,
+      isAborted: () => sid != null && _abortedSessionIds.contains(sid),
     )) {
       final type = event['type']?.toString();
       if (type == 'status') {
@@ -887,24 +1076,66 @@ class AppStateProvider extends ChangeNotifier {
     }
   }
 
-  /// 中止当前正在进行的生成
-  void abortCurrentGeneration() {
-    if (!_isBusy) {
+  /// 中止指定或当前正在进行的生成任务
+  void abortCurrentGeneration([String? targetSessionId]) {
+    final sid = targetSessionId ?? _activeSessionId;
+    if (sid == null || !isSessionBusy(sid)) {
       return;
     }
 
-    _isCurrentAborted = true;
+    _abortedSessionIds.add(sid);
 
-    if (_wsClient != null && _currentStreamSessionId != null) {
+    // 中止 WebSocket 或 AgentService 请求
+    final msgId = _sessionStreamMsgIds[sid];
+    if (_wsClient != null && msgId != null) {
       try {
         _wsClient!.add(jsonEncode({
           'type': 'abort',
-          'id': _currentStreamSessionId,
+          'id': msgId,
         }));
       } catch (_) {}
     }
 
+    // 中止代码模式下的独立 Claude Code 进程
+    _processManager.killInstance('session_$sid');
+
+    _busySessionIds.remove(sid);
     notifyListeners();
+  }
+
+  /// 回滚指定消息所关联的 Checkpoint 文件改动
+  Future<bool> rollbackMessageCheckpoint(ChatMessageModel message) async {
+    CheckpointModel? ckpt = message.checkpoint;
+    if (ckpt == null && message.checkpointId != null) {
+      ckpt = await _dbService.getCheckpointByMessageId(message.id);
+    }
+    if (ckpt == null || ckpt.isRolledBack) {
+      return false;
+    }
+
+    final ok = await _checkpointService.rollback(ckpt);
+    if (ok) {
+      message.checkpoint = ckpt;
+      message.checkpointId = ckpt.id;
+
+      final rollbackMsg = ChatMessageModel(
+        id: '${DateTime.now().millisecondsSinceEpoch}_rollback',
+        role: MessageRole.system,
+        content: '已成功回退本次改动，涉及文件已安全恢复至任务前版本。',
+        timestamp: DateTime.now(),
+        status: MessageStatus.done,
+      );
+      final session = _sessions.cast<ChatSessionModel?>().firstWhere(
+        (s) => s?.id == ckpt!.sessionId,
+        orElse: () => null,
+      );
+      if (session != null) {
+        session.messages.add(rollbackMsg);
+        await _dbService.saveMessage(session.id, rollbackMsg);
+      }
+      notifyListeners();
+    }
+    return ok;
   }
 
   /// 解析并自动注册 AI 输出中的定时任务指令块

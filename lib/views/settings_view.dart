@@ -289,27 +289,6 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ]),
           const SizedBox(height: 16),
-          // 大模型配置
-          _buildCard([
-            Text('模型服务', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary)),
-            const SizedBox(height: 14),
-            _buildField('服务地址', _apiBaseUrlController, ''),
-            const SizedBox(height: 12),
-            _buildField('访问密钥', _apiKeyController, '', isPassword: true),
-            const SizedBox(height: 12),
-            _buildField('模型', _modelNameController, ''),
-            const SizedBox(height: 12),
-            _buildField('网络代理', _httpProxyController, ''),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: _buildField('温度 (0.0-2.0)', _temperatureController, '0.7')),
-                const SizedBox(width: 12),
-                Expanded(child: _buildField('Top_P (0.0-1.0)', _topPController, '0.9')),
-              ],
-            ),
-          ]),
-          const SizedBox(height: 16),
           // 通用配置
           _buildCard([
             Text('常规', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary)),

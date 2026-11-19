@@ -6,6 +6,9 @@ import '../models/chat_message_model.dart';
 import '../models/scheduled_task_model.dart';
 import '../models/task_log_model.dart';
 import '../models/gateway_config.dart';
+import '../models/claude_profile.dart';
+import '../models/claude_process_instance.dart';
+import '../models/checkpoint_model.dart';
 import '../utils/path_utils.dart';
 
 /// 基于 SQLite 的本地数据存储与持久化服务
@@ -34,7 +37,7 @@ class DatabaseService {
     final db = await dbFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: (db, version) async {
           // 会话表
           await db.execute('''
@@ -44,7 +47,12 @@ class DatabaseService {
               created_at INTEGER NOT NULL,
               updated_at INTEGER NOT NULL,
               unread_count INTEGER NOT NULL DEFAULT 0,
-              channel TEXT NOT NULL DEFAULT 'internal'
+              channel TEXT NOT NULL DEFAULT 'internal',
+              deleted_at INTEGER,
+              profile_id TEXT,
+              tokens_used INTEGER NOT NULL DEFAULT 0,
+              session_mode TEXT NOT NULL DEFAULT 'chat',
+              work_dir TEXT
             )
           ''');
 
@@ -97,20 +105,174 @@ class DatabaseService {
               value TEXT NOT NULL
             )
           ''');
+
+          // Claude Profile 账号配置表
+          await db.execute('''
+            CREATE TABLE claude_profiles (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              remark TEXT,
+              website_url TEXT,
+              auth_type TEXT NOT NULL DEFAULT 'oauth',
+              api_key_ref TEXT,
+              api_base_url TEXT,
+              api_format TEXT,
+              auth_field TEXT,
+              sonnet_mapping TEXT,
+              opus_mapping TEXT,
+              fable_mapping TEXT,
+              haiku_mapping TEXT,
+              default_fallback_model TEXT,
+              user_agent TEXT,
+              hide_co_authored_by INTEGER NOT NULL DEFAULT 0,
+              disable_non_essential_traffic INTEGER NOT NULL DEFAULT 1,
+              disable_auto_update INTEGER NOT NULL DEFAULT 0,
+              enable_tool_search INTEGER NOT NULL DEFAULT 0,
+              max_thinking INTEGER NOT NULL DEFAULT 0,
+              teammates_mode INTEGER NOT NULL DEFAULT 0,
+              config_dir TEXT NOT NULL,
+              extra_settings_json TEXT,
+              created_at INTEGER NOT NULL,
+              last_used_at INTEGER NOT NULL
+            )
+          ''');
+
+          // Claude 进程实例表
+          await db.execute('''
+            CREATE TABLE claude_instances (
+              id TEXT PRIMARY KEY,
+              profile_id TEXT NOT NULL,
+              work_dir TEXT NOT NULL,
+              session_id TEXT,
+              status TEXT NOT NULL DEFAULT 'idle',
+              current_task TEXT,
+              started_at INTEGER NOT NULL,
+              last_output TEXT,
+              deleted_at INTEGER,
+              FOREIGN KEY (profile_id) REFERENCES claude_profiles (id)
+            )
+          ''');
         },
       ),
     );
 
-    // 检查并升级 sessions 表结构
+    // 检查并升级已有表结构与新增表
     try {
-      final info = await db.rawQuery('PRAGMA table_info(sessions)');
-      final columns = info.map((r) => r['name']?.toString()).toSet();
-      if (!columns.contains('unread_count')) {
+      final sessionInfo = await db.rawQuery('PRAGMA table_info(sessions)');
+      final sessionColumns = sessionInfo.map((r) => r['name']?.toString()).toSet();
+      if (!sessionColumns.contains('unread_count')) {
         await db.execute('ALTER TABLE sessions ADD COLUMN unread_count INTEGER NOT NULL DEFAULT 0');
       }
-      if (!columns.contains('channel')) {
+      if (!sessionColumns.contains('channel')) {
         await db.execute('ALTER TABLE sessions ADD COLUMN channel TEXT NOT NULL DEFAULT "internal"');
       }
+      if (!sessionColumns.contains('deleted_at')) {
+        await db.execute('ALTER TABLE sessions ADD COLUMN deleted_at INTEGER');
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS claude_profiles (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          remark TEXT,
+          website_url TEXT,
+          auth_type TEXT NOT NULL DEFAULT 'oauth',
+          api_key_ref TEXT,
+          api_base_url TEXT,
+          api_format TEXT,
+          auth_field TEXT,
+          sonnet_mapping TEXT,
+          opus_mapping TEXT,
+          fable_mapping TEXT,
+          haiku_mapping TEXT,
+          default_fallback_model TEXT,
+          user_agent TEXT,
+          hide_co_authored_by INTEGER NOT NULL DEFAULT 0,
+          disable_non_essential_traffic INTEGER NOT NULL DEFAULT 1,
+          disable_auto_update INTEGER NOT NULL DEFAULT 0,
+          enable_tool_search INTEGER NOT NULL DEFAULT 0,
+          max_thinking INTEGER NOT NULL DEFAULT 0,
+          teammates_mode INTEGER NOT NULL DEFAULT 0,
+          config_dir TEXT NOT NULL,
+          extra_settings_json TEXT,
+          created_at INTEGER NOT NULL,
+          last_used_at INTEGER NOT NULL
+        )
+      ''');
+
+      final profileInfo = await db.rawQuery('PRAGMA table_info(claude_profiles)');
+      final profileColumns = profileInfo.map((r) => r['name']?.toString()).toSet();
+      final columnsToAdd = {
+        'remark': 'TEXT',
+        'website_url': 'TEXT',
+        'api_base_url': 'TEXT',
+        'api_format': 'TEXT',
+        'auth_field': 'TEXT',
+        'sonnet_mapping': 'TEXT',
+        'opus_mapping': 'TEXT',
+        'fable_mapping': 'TEXT',
+        'haiku_mapping': 'TEXT',
+        'default_fallback_model': 'TEXT',
+        'user_agent': 'TEXT',
+        'hide_co_authored_by': 'INTEGER NOT NULL DEFAULT 0',
+        'disable_non_essential_traffic': 'INTEGER NOT NULL DEFAULT 1',
+        'disable_auto_update': 'INTEGER NOT NULL DEFAULT 0',
+        'enable_tool_search': 'INTEGER NOT NULL DEFAULT 0',
+        'max_thinking': 'INTEGER NOT NULL DEFAULT 0',
+        'teammates_mode': 'INTEGER NOT NULL DEFAULT 0',
+        'extra_settings_json': 'TEXT',
+      };
+      for (final entry in columnsToAdd.entries) {
+        if (!profileColumns.contains(entry.key)) {
+          await db.execute('ALTER TABLE claude_profiles ADD COLUMN ${entry.key} ${entry.value}');
+        }
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS claude_instances (
+          id TEXT PRIMARY KEY,
+          profile_id TEXT NOT NULL,
+          work_dir TEXT NOT NULL,
+          session_id TEXT,
+          status TEXT NOT NULL DEFAULT 'idle',
+          current_task TEXT,
+          started_at INTEGER NOT NULL,
+          last_output TEXT,
+          deleted_at INTEGER,
+          FOREIGN KEY (profile_id) REFERENCES claude_profiles (id)
+        )
+      ''');
+    } catch (_) {}
+
+    try {
+      await db.execute('ALTER TABLE sessions ADD COLUMN profile_id TEXT;');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE sessions ADD COLUMN tokens_used INTEGER NOT NULL DEFAULT 0;');
+    } catch (_) {}
+    try {
+      await db.execute("ALTER TABLE sessions ADD COLUMN session_mode TEXT NOT NULL DEFAULT 'chat';");
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE sessions ADD COLUMN work_dir TEXT;');
+    } catch (_) {}
+
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS checkpoints (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          message_id TEXT NOT NULL,
+          work_dir TEXT NOT NULL,
+          changed_files TEXT NOT NULL,
+          diff_summary TEXT NOT NULL,
+          diff_content TEXT,
+          backup_dir TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          is_rolled_back INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
+        )
+      ''');
     } catch (_) {}
 
     return db;
@@ -118,14 +280,35 @@ class DatabaseService {
 
   // ==================== 会话与消息管理 ====================
 
-  /// 获取所有真实会话列表（按最后更新时间倒序排列）
+  /// 获取所有活跃会话列表（未被软删除，按最后更新时间倒序排列）
   Future<List<ChatSessionModel>> loadSessions() async {
     final db = await database;
     final List<Map<String, dynamic>> sessionRows = await db.query(
       'sessions',
+      where: 'deleted_at IS NULL',
       orderBy: 'updated_at DESC',
     );
 
+    return _parseSessionsWithMessages(db, sessionRows);
+  }
+
+  /// 获取所有已被软删除的会话列表（回收站列表）
+  Future<List<ChatSessionModel>> loadDeletedSessions() async {
+    final db = await database;
+    final List<Map<String, dynamic>> sessionRows = await db.query(
+      'sessions',
+      where: 'deleted_at IS NOT NULL',
+      orderBy: 'deleted_at DESC',
+    );
+
+    return _parseSessionsWithMessages(db, sessionRows);
+  }
+
+  /// 内部方法：从会话行解析完整会话对象及消息
+  Future<List<ChatSessionModel>> _parseSessionsWithMessages(
+    Database db,
+    List<Map<String, dynamic>> sessionRows,
+  ) async {
     final List<ChatSessionModel> sessions = [];
     for (final row in sessionRows) {
       final sessionId = row['id'] as String;
@@ -136,9 +319,14 @@ class DatabaseService {
         orderBy: 'created_at ASC',
       );
 
+      final ckptList = await getCheckpointsBySessionId(sessionId);
+      final ckptMap = {for (final c in ckptList) c.messageId: c};
+
       final messages = messageRows.map((m) {
+        final msgId = m['id'] as String;
+        final ckpt = ckptMap[msgId];
         return ChatMessageModel(
-          id: m['id'] as String,
+          id: msgId,
           role: MessageRole.values.firstWhere(
             (r) => r.name == m['role'],
             orElse: () => MessageRole.user,
@@ -149,6 +337,8 @@ class DatabaseService {
             orElse: () => MessageStatus.done,
           ),
           timestamp: DateTime.fromMillisecondsSinceEpoch(m['created_at'] as int),
+          checkpointId: ckpt?.id,
+          checkpoint: ckpt,
         );
       }).toList();
 
@@ -160,6 +350,13 @@ class DatabaseService {
         messages: messages,
         unreadCount: (row['unread_count'] as num?)?.toInt() ?? 0,
         channel: row['channel'] as String? ?? 'internal',
+        deletedAt: row['deleted_at'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(row['deleted_at'] as int)
+            : null,
+        profileId: row['profile_id'] as String?,
+        tokensUsed: (row['tokens_used'] as num?)?.toInt() ?? 0,
+        sessionMode: row['session_mode'] as String? ?? 'chat',
+        workDir: row['work_dir'] as String?,
       ));
     }
 
@@ -178,6 +375,11 @@ class DatabaseService {
         'updated_at': session.updatedAt.millisecondsSinceEpoch,
         'unread_count': session.unreadCount,
         'channel': session.channel,
+        'deleted_at': session.deletedAt?.millisecondsSinceEpoch,
+        'profile_id': session.profileId,
+        'tokens_used': session.tokensUsed,
+        'session_mode': session.sessionMode,
+        'work_dir': session.workDir,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -193,10 +395,58 @@ class DatabaseService {
         'updated_at': session.updatedAt.millisecondsSinceEpoch,
         'unread_count': session.unreadCount,
         'channel': session.channel,
+        'deleted_at': session.deletedAt?.millisecondsSinceEpoch,
+        'profile_id': session.profileId,
+        'tokens_used': session.tokensUsed,
+        'session_mode': session.sessionMode,
+        'work_dir': session.workDir,
       },
       where: 'id = ?',
       whereArgs: [session.id],
     );
+  }
+
+  /// 软删除会话（标记删除时间戳）
+  Future<void> softDeleteSession(String sessionId) async {
+    final db = await database;
+    await db.update(
+      'sessions',
+      {'deleted_at': DateTime.now().millisecondsSinceEpoch},
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
+  /// 恢复软删除的会话
+  Future<void> restoreSession(String sessionId) async {
+    final db = await database;
+    await db.update(
+      'sessions',
+      {'deleted_at': null},
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
+  /// 物理删除超过 7 天的已软删除会话及关联消息
+  Future<int> purgeExpiredSessions() async {
+    final db = await database;
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
+    final expiredRows = await db.query(
+      'sessions',
+      columns: ['id'],
+      where: 'deleted_at IS NOT NULL AND deleted_at < ?',
+      whereArgs: [sevenDaysAgo],
+    );
+
+    if (expiredRows.isEmpty) return 0;
+
+    final ids = expiredRows.map((r) => r['id'] as String).toList();
+    final placeholders = List.filled(ids.length, '?').join(',');
+
+    await db.delete('messages', where: 'session_id IN ($placeholders)', whereArgs: ids);
+    final count = await db.delete('sessions', where: 'id IN ($placeholders)', whereArgs: ids);
+    return count;
   }
 
   /// 将会话标记为已读
@@ -485,5 +735,123 @@ class DatabaseService {
   Future<void> clearWechatToken() async {
     final db = await database;
     await db.delete('configs', where: 'key IN (?, ?)', whereArgs: ['wechat_bot_token', 'wechat_bot_name']);
+  }
+
+  // ==================== Claude Profile 管理 ====================
+
+  /// 读取所有 Profile 账号
+  Future<List<ClaudeProfile>> loadProfiles() async {
+    final db = await database;
+    final rows = await db.query('claude_profiles', orderBy: 'last_used_at DESC');
+    return rows.map((r) => ClaudeProfile.fromMap(r)).toList();
+  }
+
+  /// 插入或更新 Profile
+  Future<void> saveProfile(ClaudeProfile profile) async {
+    final db = await database;
+    await db.insert(
+      'claude_profiles',
+      profile.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 删除指定 Profile
+  Future<void> deleteProfile(String profileId) async {
+    final db = await database;
+    await db.delete('claude_profiles', where: 'id = ?', whereArgs: [profileId]);
+  }
+
+  // ==================== Claude 实例管理 ====================
+
+  /// 读取所有未被软删除的实例记录
+  Future<List<ClaudeProcessInstance>> loadInstances() async {
+    final db = await database;
+    final rows = await db.query(
+      'claude_instances',
+      where: 'deleted_at IS NULL',
+      orderBy: 'started_at DESC',
+    );
+    return rows.map((r) => ClaudeProcessInstance.fromMap(r)).toList();
+  }
+
+  /// 保存或更新实例记录
+  Future<void> saveInstance(ClaudeProcessInstance instance) async {
+    final db = await database;
+    await db.insert(
+      'claude_instances',
+      instance.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 软删除实例记录
+  Future<void> softDeleteInstance(String instanceId) async {
+    final db = await database;
+    await db.update(
+      'claude_instances',
+      {'deleted_at': DateTime.now().millisecondsSinceEpoch},
+      where: 'id = ?',
+      whereArgs: [instanceId],
+    );
+  }
+
+  /// 物理删除超过 7 天的实例记录
+  Future<int> purgeExpiredInstances() async {
+    final db = await database;
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
+    return await db.delete(
+      'claude_instances',
+      where: 'deleted_at IS NOT NULL AND deleted_at < ?',
+      whereArgs: [sevenDaysAgo],
+    );
+  }
+
+  // ==================== 工作区 Checkpoint 快照管理 ====================
+
+  /// 保存文件快照 Checkpoint
+  Future<void> saveCheckpoint(CheckpointModel checkpoint) async {
+    final db = await database;
+    await db.insert(
+      'checkpoints',
+      checkpoint.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 更新 Checkpoint（例如标记已回退）
+  Future<void> updateCheckpoint(CheckpointModel checkpoint) async {
+    final db = await database;
+    await db.update(
+      'checkpoints',
+      checkpoint.toMap(),
+      where: 'id = ?',
+      whereArgs: [checkpoint.id],
+    );
+  }
+
+  /// 根据消息 ID 获取对应的 Checkpoint
+  Future<CheckpointModel?> getCheckpointByMessageId(String messageId) async {
+    final db = await database;
+    final rows = await db.query(
+      'checkpoints',
+      where: 'message_id = ?',
+      whereArgs: [messageId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return CheckpointModel.fromMap(rows.first);
+  }
+
+  /// 根据会话 ID 获取所有历史 Checkpoint 列表
+  Future<List<CheckpointModel>> getCheckpointsBySessionId(String sessionId) async {
+    final db = await database;
+    final rows = await db.query(
+      'checkpoints',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at DESC',
+    );
+    return rows.map((r) => CheckpointModel.fromMap(r)).toList();
   }
 }

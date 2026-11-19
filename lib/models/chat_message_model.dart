@@ -1,3 +1,5 @@
+import 'checkpoint_model.dart';
+
 /// 消息角色类型
 enum MessageRole {
   user,
@@ -21,9 +23,14 @@ class ChatMessageModel {
   String content;
   final DateTime timestamp;
   MessageStatus status;
-  final String? toolName;
-  final String? toolInput;
+  String? toolName;
+  String? toolInput;
   String? toolOutput;
+  List<String>? attachments;
+  String? thinking;
+  bool isThinking;
+  String? checkpointId;
+  CheckpointModel? checkpoint;
 
   ChatMessageModel({
     required this.id,
@@ -34,6 +41,11 @@ class ChatMessageModel {
     this.toolName,
     this.toolInput,
     this.toolOutput,
+    this.attachments,
+    this.thinking,
+    this.isThinking = false,
+    this.checkpointId,
+    this.checkpoint,
   });
 
   /// 转换为 JSON 格式
@@ -47,6 +59,9 @@ class ChatMessageModel {
       'toolName': toolName,
       'toolInput': toolInput,
       'toolOutput': toolOutput,
+      'attachments': attachments,
+      'thinking': thinking,
+      'checkpointId': checkpointId,
     };
   }
 
@@ -67,6 +82,9 @@ class ChatMessageModel {
       toolName: json['toolName'] as String?,
       toolInput: json['toolInput'] as String?,
       toolOutput: json['toolOutput'] as String?,
+      attachments: (json['attachments'] as List?)?.map((e) => e.toString()).toList(),
+      thinking: json['thinking'] as String?,
+      checkpointId: json['checkpointId'] as String?,
     );
   }
 }

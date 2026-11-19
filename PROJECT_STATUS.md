@@ -30,19 +30,41 @@
 4. **定时计划任务功能（已实现）**
    - **任务修改与二次编辑**：操作列中增加编辑按钮，支持修改任务名称、Cron 表达式、任务类型及执行命令。
    - **任务运行日志管理**：支持查看执行耗时与状态结果，并在日志底部提供一键清空日志操作。
-   - **原生 Cron 调度服务**（[cron_scheduler_service.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/cron_scheduler_service.dart)）：基于标准 Cron 表达式进行底层调度，支持网关检测、插件扫描及系统命令执行。
+   - **原生 Cron 调度服务**（[cron_scheduler_service.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/cron_scheduler_service.dart)）：基于标准 Cron 表达式进行底层调度，支持网关检测、插件扫描、系统命令执行及 7 天过期数据自动清理。
 
-5. **插件扩展体系（已实现）**
+5. **Claude Code 环境管理与多任务 AI 编程工作台（已实现）**
+   - **环境检测与安装引导**（[claude_env_service.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/claude_env_service.dart)）：
+     - 自动检测本机 Claude Code 是否安装、获取绝对路径及版本号。
+     - 自动探测 Node.js 环境，未安装时提供一键复制命令与指引。
+   - **Profile 多账号切换与隔离**（[claude_profile_service.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/claude_profile_service.dart)）：
+     - 借鉴 CCSwitch 架构机制，为每个 Profile 分配独立的专用配置目录（`~/.agenthub/claude_profiles/<id>`），启动时通过 `CLAUDE_CONFIG_DIR` 环境变量实现物理级配置与 OAuth 凭据隔离。
+     - 支持 OAuth 与 API Key 两种授权模式，支持自定义模型名与权限模式。
+   - **安全凭证存储**（[credential_service.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/credential_service.dart)）：
+     - 基于系统底层 Keychain / Credential Manager 安全存储 API Key，绝不明文写入 JSON 或 SQLite。
+   - **多任务工作台调度**（[claude_process_manager.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/claude_process_manager.dart) 与 [claude_manager_view.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/views/claude_manager_view.dart)）：
+     - 每个工作台实例绑定独立的工作目录、Profile 环境变量、会话 ID（支持 `--resume` 上下文恢复）。
+     - 支持多实例并行启动，通过 `-p --output-format stream-json` 实时捕获 NDJSON 流并在终端窗口实时滚动输出。
+     - 具备任务状态监控与主动中止执行能力。
+   - **文件与图片附件输入**（[attachment_service.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/attachment_service.dart) 与 [attachment_input.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/widgets/attachment_input.dart)）：
+     - 支持图片（png/jpg/webp）、文本文档（txt/md/json 等）与源代码文件。
+     - 支持文件选择器多选、桌面文件直接拖入输入区、剪贴板屏幕截图快捷粘贴。
+     - 自动将附件暂存至工作目录并拼接入 prompt 供 Claude Code 视觉及读取工具解析。
+   - **会话两阶段软删除与自动清理**（[trash_view.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/views/trash_view.dart)）：
+     - 删除会话时写入 `deleted_at` 标记软删除，界面即时隐藏并提示用户。
+     - 提供专属回收站页面，支持随时恢复会话或彻底物理删除。
+     - 启动时及系统定时任务自动物理清理超过 7 天的超期已删会话与实例数据。
+
+6. **插件扩展体系（已实现）**
    - **执行输出展示**：插件手动执行结果使用等宽字体终端样式弹窗进行展示。
    - **插件加载与管理**（[skill_service.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/skill_service.dart)）：支持扫描、启停、执行及通过 Git 仓库克隆安装。
 
-6. **系统设置与参数配置（已实现）**
+7. **系统设置与参数配置（已实现）**
    - **网络代理配置**：增加 HTTP / HTTPS 网络代理输入项。
    - **模型参数调节**：增加温度（temperature）与 Top_P 采样参数配置。
    - **数据重置**：常规设置中增加清空全部历史会话数据操作，带二次确认弹窗。
    - **主题模式深度持久化与预载**：启动时在第一帧前完成 SQLite 配置读取，且设置页明暗模式卡片与全局真实状态 100% 绑定，彻底杜绝重启变亮色或设置保存写回默认值的缺陷。
 
-7. **微信接入通道与消息自动回复（已实现）**
+8. **微信接入通道与消息自动回复（已实现）**
    - **独立服务对接**（[wechat_channel_service.dart](file:///Users/rong.chen/data/yuanzhijia/agenthub/lib/services/wechat_channel_service.dart)）：基于腾讯官方 iLink 机器人协议直连，支持二维码获取、扫码状态轮询、消息拉取与消息回复发送。
    - **自主选择与非强制接入**：通道默认不直接自启，由用户在顶栏快捷入口或系统设置面板中主动开启。
    - **自动回复开关控制**：用户可选择是否启动大模型自动回复微信接收到的消息。

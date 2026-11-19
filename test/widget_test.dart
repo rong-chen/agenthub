@@ -4,6 +4,6 @@ import 'package:agenthub/main.dart';
 void main() {
   testWidgets('App basic initialization test', (WidgetTester tester) async {
     await tester.pumpWidget(const AgentHubApp());
-    await tester.pumpAndSettle(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 100));
   });
 }
