@@ -99,6 +99,12 @@ class AgentHubTheme {
           side: BorderSide(color: bdr),
         ),
       ),
+      // 文本选择与划选高亮主题
+      textSelectionTheme: TextSelectionThemeData(
+        selectionColor: dark ? const Color(0x60388BFD) : const Color(0x350969DA),
+        selectionHandleColor: primaryRed,
+        cursorColor: primaryRed,
+      ),
     );
   }
 }

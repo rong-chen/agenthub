@@ -7,7 +7,6 @@ import '../../models/checkpoint_model.dart';
 import '../../models/chat_message_model.dart';
 import '../../models/chat_session_model.dart';
 import '../../providers/app_state_provider.dart';
-import '../../services/checkpoint_service.dart';
 import '../../theme/agenthub_theme.dart';
 
 /// 代码差异行类型
@@ -680,12 +679,7 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
                   onTap: (isRolledBack || provider.isBusy)
                       ? null
                       : () async {
-                          if (widget.message != null) {
-                            await provider.rollbackMessageCheckpoint(widget.message!);
-                          } else {
-                            await CheckpointService.instance.rollback(ckpt);
-                            setState(() => ckpt.isRolledBack = true);
-                          }
+                          await provider.rollbackCheckpoint(ckpt, widget.message);
                         },
                   borderRadius: BorderRadius.circular(4),
                   child: Container(
@@ -891,96 +885,108 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
     );
   }
 
-  /// Antigravity 风格沉浸式代码比对视图
+  /// Antigravity 风格沉浸式代码比对视图（支持多行框选与右键复制）
   Widget _buildAntigravityCodeView(List<DiffLine> lines, bool isDark) {
     final lineNumberColor = isDark ? const Color(0xFF6E7681) : const Color(0xFF8C959F);
     final textNormalColor = isDark ? const Color(0xFFE6EDF3) : const Color(0xFF24292E);
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: lines.map((line) {
-            // Hunk 折叠胶囊
-            if (line.type == DiffLineType.hunkHeader) {
-              final count = line.skippedCount;
+    return SelectionArea(
+      contextMenuBuilder: (context, selectableRegionState) {
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: selectableRegionState.contextMenuAnchors,
+          buttonItems: selectableRegionState.contextMenuButtonItems,
+        );
+      },
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: lines.map((line) {
+              // Hunk 折叠胶囊（禁用选择）
+              if (line.type == DiffLineType.hunkHeader) {
+                final count = line.skippedCount;
+                return SelectionContainer.disabled(
+                  child: Container(
+                    width: 900,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    alignment: Alignment.center,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF21262D) : const Color(0xFFE1E4E8),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        count > 0 ? '+$count more lines' : '···',
+                        style: TextStyle(
+                          fontFamily: 'Menlo, Monaco, Courier, monospace',
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFF8B949E) : const Color(0xFF586069),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final isDelete = line.type == DiffLineType.delete;
+              final isAdd = line.type == DiffLineType.add;
+
+              Color? rowBg;
+              if (isDelete) {
+                rowBg = isDark ? const Color(0xFF5A1E1E) : const Color(0xFFFFDCE0);
+              } else if (isAdd) {
+                rowBg = isDark ? const Color(0xFF1E4620) : const Color(0xFFDCFFE4);
+              }
+
+              final lineNumStr = isDelete
+                  ? ''
+                  : (line.newLineNumber != null ? '${line.newLineNumber}' : '');
+
               return Container(
                 width: 900,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                alignment: Alignment.center,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF21262D) : const Color(0xFFE1E4E8),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    count > 0 ? '+$count more lines' : '···',
-                    style: TextStyle(
-                      fontFamily: 'Menlo, Monaco, Courier, monospace',
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? const Color(0xFF8B949E) : const Color(0xFF586069),
+                color: rowBg ?? Colors.transparent,
+                padding: const EdgeInsets.symmetric(vertical: 2.5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 单列行号（禁用选择，防止混入复制代码）
+                    SelectionContainer.disabled(
+                      child: SizedBox(
+                        width: 44,
+                        child: Text(
+                          lineNumStr,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontFamily: 'Menlo, Monaco, Courier, monospace',
+                            fontSize: 12,
+                            height: 1.4,
+                            color: lineNumberColor,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 14),
+                    // 代码文本正文
+                    Expanded(
+                      child: Text(
+                        line.text.isEmpty ? ' ' : line.text,
+                        style: TextStyle(
+                          fontFamily: 'Menlo, Monaco, Courier, monospace',
+                          fontSize: 12.5,
+                          height: 1.4,
+                          color: textNormalColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               );
-            }
-
-            final isDelete = line.type == DiffLineType.delete;
-            final isAdd = line.type == DiffLineType.add;
-
-            Color? rowBg;
-            if (isDelete) {
-              rowBg = isDark ? const Color(0xFF5A1E1E) : const Color(0xFFFFDCE0);
-            } else if (isAdd) {
-              rowBg = isDark ? const Color(0xFF1E4620) : const Color(0xFFDCFFE4);
-            }
-
-            final lineNumStr = isDelete
-                ? ''
-                : (line.newLineNumber != null ? '${line.newLineNumber}' : '');
-
-            return Container(
-              width: 900,
-              color: rowBg ?? Colors.transparent,
-              padding: const EdgeInsets.symmetric(vertical: 2.5),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 单列行号
-                  SizedBox(
-                    width: 44,
-                    child: Text(
-                      lineNumStr,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontFamily: 'Menlo, Monaco, Courier, monospace',
-                        fontSize: 12,
-                        height: 1.4,
-                        color: lineNumberColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  // 代码文本正文
-                  Expanded(
-                    child: Text(
-                      line.text.isEmpty ? ' ' : line.text,
-                      style: TextStyle(
-                        fontFamily: 'Menlo, Monaco, Courier, monospace',
-                        fontSize: 12.5,
-                        height: 1.4,
-                        color: textNormalColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+            }).toList(),
+          ),
         ),
       ),
     );

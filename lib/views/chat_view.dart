@@ -231,36 +231,45 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  /// 消息列表（从顶部按时间顺序正常向下排列）
+  /// 消息列表（从顶部按时间顺序正常向下排列，支持多行划选与右键复制）
   Widget _buildMessageList(AppStateProvider provider, List<ChatMessageModel> messages) {
     final screenWidth = MediaQuery.of(context).size.width;
     final maxBubbleWidth = screenWidth * 0.7;
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      itemCount: messages.length,
-      itemBuilder: (context, index) {
-        final message = messages[index];
-        final isUser = message.role == MessageRole.user;
+    return SelectionArea(
+      contextMenuBuilder: (context, selectableRegionState) {
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: selectableRegionState.contextMenuAnchors,
+          buttonItems: selectableRegionState.contextMenuButtonItems,
+        );
+      },
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        itemCount: messages.length,
+        itemBuilder: (context, index) {
+          final message = messages[index];
+          final isUser = message.role == MessageRole.user;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-            children: [
-              if (!isUser) ...[
-                // AI 头像：使用 Icons 替代文本 'A'
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(color: AgentHubTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.smart_toy_outlined, size: 18, color: AgentHubTheme.textPrimary),
-                ),
-                const SizedBox(width: 10),
-              ],
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+              children: [
+                if (!isUser) ...[
+                  // AI 头像
+                  SelectionContainer.disabled(
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(color: AgentHubTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
+                      alignment: Alignment.center,
+                      child: Icon(Icons.smart_toy_outlined, size: 18, color: AgentHubTheme.textPrimary),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
               Flexible(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxBubbleWidth),
@@ -290,57 +299,6 @@ class _ChatViewState extends State<ChatView> {
                               ),
                             );
                           }).toList(),
-                        ),
-                      ],
-                      if (message.toolName != null && message.toolName!.isNotEmpty) ...[
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AgentHubTheme.isDark ? const Color(0xFF161616) : const Color(0xFFF2F2F2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AgentHubTheme.border),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.terminal_outlined, size: 13, color: AgentHubTheme.primaryRed),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '执行工具: ${message.toolName}',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary),
-                                  ),
-                                ],
-                              ),
-                              if (message.toolInput != null && message.toolInput!.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                SelectableText(
-                                  message.toolInput!,
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                    color: AgentHubTheme.isDark ? const Color(0xFFE0E0E0) : const Color(0xFF222222),
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                              if (message.toolOutput != null && message.toolOutput!.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                SelectableText(
-                                  message.toolOutput!,
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                    color: AgentHubTheme.textSecondary,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
                         ),
                       ],
                       if (message.isThinking || (message.thinking != null && message.thinking!.isNotEmpty)) ...[
@@ -374,7 +332,7 @@ class _ChatViewState extends State<ChatView> {
                               ),
                               if (message.toolInput != null && message.toolInput!.isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                SelectableText(
+                                Text(
                                   message.toolInput!,
                                   style: TextStyle(
                                     fontFamily: 'monospace',
@@ -386,7 +344,7 @@ class _ChatViewState extends State<ChatView> {
                               ],
                               if (message.toolOutput != null && message.toolOutput!.isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                SelectableText(
+                                Text(
                                   message.toolOutput!,
                                   style: TextStyle(
                                     fontFamily: 'monospace',
@@ -457,171 +415,174 @@ class _ChatViewState extends State<ChatView> {
                         ),
                       ],
                       const SizedBox(height: 6),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (message.checkpoint != null && message.checkpoint!.changedFiles.isNotEmpty) ...[
-                            InkWell(
-                              onTap: () {
-                                if (provider.rightPanelType == RightPanelType.fileDiff &&
-                                    provider.activeCheckpoint?.id == message.checkpoint!.id) {
-                                  provider.closeRightPanel();
-                                } else {
-                                  provider.openFileDiffPanel(message.checkpoint!, message);
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: (provider.rightPanelType == RightPanelType.fileDiff &&
-                                          provider.activeCheckpoint?.id == message.checkpoint!.id)
-                                      ? AgentHubTheme.primaryRed.withValues(alpha: 0.1)
-                                      : AgentHubTheme.cardBackground,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
+                      // 底部辅助操作条（禁用选择，防止混入选中复制）
+                      SelectionContainer.disabled(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (message.checkpoint != null && message.checkpoint!.changedFiles.isNotEmpty) ...[
+                              InkWell(
+                                onTap: () {
+                                  if (provider.rightPanelType == RightPanelType.fileDiff &&
+                                      provider.activeCheckpoint?.id == message.checkpoint!.id) {
+                                    provider.closeRightPanel();
+                                  } else {
+                                    provider.openFileDiffPanel(message.checkpoint!, message);
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
                                     color: (provider.rightPanelType == RightPanelType.fileDiff &&
                                             provider.activeCheckpoint?.id == message.checkpoint!.id)
-                                        ? AgentHubTheme.primaryRed
-                                        : AgentHubTheme.border,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.difference_outlined,
-                                      size: 13,
+                                        ? AgentHubTheme.primaryRed.withValues(alpha: 0.1)
+                                        : AgentHubTheme.cardBackground,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
                                       color: (provider.rightPanelType == RightPanelType.fileDiff &&
                                               provider.activeCheckpoint?.id == message.checkpoint!.id)
                                           ? AgentHubTheme.primaryRed
-                                          : AgentHubTheme.textSecondary,
+                                          : AgentHubTheme.border,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '查看改动',
-                                      style: TextStyle(
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.difference_outlined,
+                                        size: 13,
                                         color: (provider.rightPanelType == RightPanelType.fileDiff &&
                                                 provider.activeCheckpoint?.id == message.checkpoint!.id)
                                             ? AgentHubTheme.primaryRed
                                             : AgentHubTheme.textSecondary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: (message.checkpoint!.isRolledBack || provider.isBusy)
-                                  ? null
-                                  : () => _confirmRollback(provider, message),
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: message.checkpoint!.isRolledBack
-                                      ? AgentHubTheme.cardBackground
-                                      : AgentHubTheme.primaryRed.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: message.checkpoint!.isRolledBack
-                                        ? AgentHubTheme.border
-                                        : AgentHubTheme.primaryRed.withValues(alpha: 0.3),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '查看改动',
+                                        style: TextStyle(
+                                          color: (provider.rightPanelType == RightPanelType.fileDiff &&
+                                                  provider.activeCheckpoint?.id == message.checkpoint!.id)
+                                              ? AgentHubTheme.primaryRed
+                                              : AgentHubTheme.textSecondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.undo,
-                                      size: 13,
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: (message.checkpoint!.isRolledBack || provider.isBusy)
+                                    ? null
+                                    : () => _confirmRollback(provider, message),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: message.checkpoint!.isRolledBack
+                                        ? AgentHubTheme.cardBackground
+                                        : AgentHubTheme.primaryRed.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
                                       color: message.checkpoint!.isRolledBack
-                                          ? AgentHubTheme.textTertiary
-                                          : AgentHubTheme.primaryRed,
+                                          ? AgentHubTheme.border
+                                          : AgentHubTheme.primaryRed.withValues(alpha: 0.3),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      message.checkpoint!.isRolledBack ? '已回退' : '回退',
-                                      style: TextStyle(
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.undo,
+                                        size: 13,
                                         color: message.checkpoint!.isRolledBack
                                             ? AgentHubTheme.textTertiary
                                             : AgentHubTheme.primaryRed,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        message.checkpoint!.isRolledBack ? '已回退' : '回退',
+                                        style: TextStyle(
+                                          color: message.checkpoint!.isRolledBack
+                                              ? AgentHubTheme.textTertiary
+                                              : AgentHubTheme.primaryRed,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          InkWell(
-                            onTap: () {
-                              Clipboard.setData(ClipboardData(text: message.content));
-                              setState(() => _copiedMessageId = message.id);
-                              Future.delayed(const Duration(milliseconds: 1500), () {
-                                if (mounted && _copiedMessageId == message.id) {
-                                  setState(() => _copiedMessageId = null);
-                                }
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AgentHubTheme.cardBackground,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AgentHubTheme.border),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _copiedMessageId == message.id ? Icons.check : Icons.content_copy_outlined,
-                                    size: 13,
-                                    color: _copiedMessageId == message.id ? AgentHubTheme.statusGreen : AgentHubTheme.textSecondary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _copiedMessageId == message.id ? '已复制' : '复制',
-                                    style: TextStyle(
-                                      color: _copiedMessageId == message.id ? AgentHubTheme.statusGreen : AgentHubTheme.textSecondary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (!isUser && message.status == MessageStatus.error) ...[
-                            const SizedBox(width: 8),
+                              const SizedBox(width: 8),
+                            ],
                             InkWell(
-                              onTap: provider.isBusy ? null : () => provider.retryLastMessage(),
+                              onTap: () {
+                                Clipboard.setData(ClipboardData(text: message.content));
+                                setState(() => _copiedMessageId = message.id);
+                                Future.delayed(const Duration(milliseconds: 1500), () {
+                                  if (mounted && _copiedMessageId == message.id) {
+                                    setState(() => _copiedMessageId = null);
+                                  }
+                                });
+                              },
                               borderRadius: BorderRadius.circular(6),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: AgentHubTheme.cardBackground,
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AgentHubTheme.primaryRed.withValues(alpha: 0.5)),
+                                  border: Border.all(color: AgentHubTheme.border),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.refresh, size: 13, color: AgentHubTheme.primaryRed),
+                                    Icon(
+                                      _copiedMessageId == message.id ? Icons.check : Icons.content_copy_outlined,
+                                      size: 13,
+                                      color: _copiedMessageId == message.id ? AgentHubTheme.statusGreen : AgentHubTheme.textSecondary,
+                                    ),
                                     const SizedBox(width: 4),
-                                    Text('重试', style: TextStyle(color: AgentHubTheme.primaryRed, fontSize: 11, fontWeight: FontWeight.w500)),
+                                    Text(
+                                      _copiedMessageId == message.id ? '已复制' : '复制',
+                                      style: TextStyle(
+                                        color: _copiedMessageId == message.id ? AgentHubTheme.statusGreen : AgentHubTheme.textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                             ),
+                            if (!isUser && message.status == MessageStatus.error) ...[
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: provider.isBusy ? null : () => provider.retryLastMessage(),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AgentHubTheme.cardBackground,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: AgentHubTheme.primaryRed.withValues(alpha: 0.5)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.refresh, size: 13, color: AgentHubTheme.primaryRed),
+                                      const SizedBox(width: 4),
+                                      Text('重试', style: TextStyle(color: AgentHubTheme.primaryRed, fontSize: 11, fontWeight: FontWeight.w500)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -629,21 +590,24 @@ class _ChatViewState extends State<ChatView> {
               ),
               if (isUser) ...[
                 const SizedBox(width: 10),
-                // 用户头像：使用 Icons 替代文本 'U'
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(color: AgentHubTheme.primaryRed, borderRadius: BorderRadius.circular(8)),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.person_outlined, size: 18, color: Colors.white),
+                // 用户头像（禁用选择）
+                SelectionContainer.disabled(
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(color: AgentHubTheme.primaryRed, borderRadius: BorderRadius.circular(8)),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.person_outlined, size: 18, color: Colors.white),
+                  ),
                 ),
               ],
             ],
           ),
         );
       },
-    );
-  }
+    ),
+  );
+}
 
   /// 弹出确认回滚对话框
   void _confirmRollback(AppStateProvider provider, ChatMessageModel message) {

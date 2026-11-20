@@ -1181,29 +1181,39 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 回滚指定消息所关联的 Checkpoint 文件改动
-  /// 回滚指定消息所关联的文件改动，删除对应上下文，并返回用户输入内容以回填输入框
-  Future<String?> rollbackMessageCheckpoint(ChatMessageModel message) async {
-    CheckpointModel? ckpt = message.checkpoint;
-    if (ckpt == null && message.checkpointId != null) {
-      ckpt = await _dbService.getCheckpointByMessageId(message.id);
-    }
-    if (ckpt == null) {
-      return null;
-    }
-
-    final ok = await _checkpointService.rollback(ckpt);
+  /// 回滚指定 Checkpoint 所关联的文件改动，删除对应轮次上下文，并将用户原始指令回填输入框
+  Future<String?> rollbackCheckpoint(CheckpointModel checkpoint, [ChatMessageModel? message]) async {
+    final ok = await _checkpointService.rollback(checkpoint);
     if (!ok) return null;
+    checkpoint.isRolledBack = true;
 
-    final session = _sessions.cast<ChatSessionModel?>().firstWhere(
-      (s) => s?.id == ckpt!.sessionId,
+    ChatSessionModel? session = _sessions.cast<ChatSessionModel?>().firstWhere(
+      (s) => s?.id == checkpoint.sessionId,
       orElse: () => null,
     );
+    session ??= activeSession;
 
     String? revertedPrompt;
 
     if (session != null) {
-      final assistantIndex = session.messages.indexWhere((m) => m.id == message.id);
+      int assistantIndex = -1;
+      if (message != null) {
+        assistantIndex = session.messages.indexWhere((m) => m.id == message.id);
+      }
+      if (assistantIndex == -1) {
+        assistantIndex = session.messages.indexWhere(
+          (m) => m.checkpointId == checkpoint.id || m.id == checkpoint.messageId,
+        );
+      }
+      if (assistantIndex == -1) {
+        for (int i = session.messages.length - 1; i >= 0; i--) {
+          if (session.messages[i].role == MessageRole.assistant) {
+            assistantIndex = i;
+            break;
+          }
+        }
+      }
+
       if (assistantIndex != -1) {
         int userIndex = -1;
         for (int i = assistantIndex - 1; i >= 0; i--) {
@@ -1223,13 +1233,16 @@ class AppStateProvider extends ChangeNotifier {
           msgsToDelete.add(session.messages[assistantIndex]);
         }
 
-        for (final m in msgsToDelete) {
-          session.messages.remove(m);
-          await _dbService.deleteMessage(m.id);
+        final idsToDelete = msgsToDelete.map((e) => e.id).toSet();
+        session.messages.removeWhere((item) => idsToDelete.contains(item.id));
+        session.updatedAt = DateTime.now();
+        await _dbService.updateSession(session);
+        for (final id in idsToDelete) {
+          await _dbService.deleteMessage(id);
         }
       }
 
-      if (_activeCheckpoint?.id == ckpt.id) {
+      if (_activeCheckpoint?.id == checkpoint.id) {
         _activeCheckpoint = null;
         _activeDiffMessage = null;
       }
@@ -1238,6 +1251,18 @@ class AppStateProvider extends ChangeNotifier {
     }
 
     return revertedPrompt;
+  }
+
+  /// 回滚指定消息所关联的文件改动
+  Future<String?> rollbackMessageCheckpoint(ChatMessageModel message) async {
+    CheckpointModel? ckpt = message.checkpoint;
+    if (ckpt == null && message.checkpointId != null) {
+      ckpt = await _dbService.getCheckpointByMessageId(message.id);
+    }
+    if (ckpt == null) {
+      return null;
+    }
+    return rollbackCheckpoint(ckpt, message);
   }
 
   /// 解析并自动注册 AI 输出中的定时任务指令块
