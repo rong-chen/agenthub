@@ -135,6 +135,38 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
                     ),
                   ),
                 ],
+                if (step.actionLabel.contains('命令') || step.toolName.toLowerCase().contains('bash')) ...[
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () {
+                      context.read<AppStateProvider>().switchRightPanelTab(RightPanelType.serviceRunner);
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AgentHubTheme.primaryRed.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AgentHubTheme.primaryRed.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.terminal_outlined, size: 12, color: AgentHubTheme.primaryRed),
+                          const SizedBox(width: 4),
+                          Text(
+                            '在服务控制台查看实时日志',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: AgentHubTheme.primaryRed,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ],
           ),

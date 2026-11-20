@@ -18,6 +18,8 @@ import 'settings_view.dart';
 import 'trash_view.dart';
 import 'panels/file_diff_panel.dart';
 import 'panels/file_preview_panel.dart';
+import 'panels/project_service_panel.dart';
+import '../services/project_service_manager.dart';
 
 /// 主窗口布局，包含左侧边栏与主工作区
 class HomeView extends StatefulWidget {
@@ -149,7 +151,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     );
   }
 
-  /// 构建右侧内容区域（长显，支持文件预览、文件修改及后续扩展）
+  /// 构建右侧内容区域（支持文件预览、文件修改、服务控制台无缝切换）
   Widget _buildRightPanel(BuildContext context, AppStateProvider provider) {
     if (provider.rightPanelType == RightPanelType.filePreview && provider.previewFilePath != null) {
       return FilePreviewPanel(
@@ -159,13 +161,120 @@ class _HomeViewState extends State<HomeView> with WindowListener {
       );
     }
 
+    final isDark = AgentHubTheme.isDark;
     final activeSession = provider.activeSession;
     final ckpt = provider.currentDisplayCheckpoint;
+    final currentTab = provider.rightPanelType == RightPanelType.serviceRunner
+        ? RightPanelType.serviceRunner
+        : RightPanelType.fileDiff;
 
-    return FileDiffPanel(
-      checkpoint: ckpt,
-      session: activeSession,
-      message: provider.activeDiffMessage,
+    final serviceInst = activeSession != null
+        ? ProjectServiceManager.instance.getInstance(activeSession.id)
+        : null;
+    final isServiceRunning = serviceInst?.status == ServiceStatus.running;
+
+    return Container(
+      color: isDark ? const Color(0xFF141414) : const Color(0xFFF9F8F5),
+      child: Column(
+        children: [
+          // 顶部统一 Tab 切换栏
+          Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+              border: Border(bottom: BorderSide(color: AgentHubTheme.border)),
+            ),
+            child: Row(
+              children: [
+                _buildRightPanelTabItem(
+                  title: '文件修改',
+                  icon: Icons.edit_document,
+                  isSelected: currentTab == RightPanelType.fileDiff,
+                  onTap: () => provider.switchRightPanelTab(RightPanelType.fileDiff),
+                ),
+                const SizedBox(width: 6),
+                _buildRightPanelTabItem(
+                  title: '服务控制台',
+                  icon: Icons.terminal_outlined,
+                  isSelected: currentTab == RightPanelType.serviceRunner,
+                  hasDot: isServiceRunning,
+                  dotColor: const Color(0xFF2EA44F),
+                  onTap: () => provider.switchRightPanelTab(RightPanelType.serviceRunner),
+                ),
+              ],
+            ),
+          ),
+          // 主体展示内容
+          Expanded(
+            child: currentTab == RightPanelType.serviceRunner
+                ? ProjectServicePanel(
+                    sessionId: activeSession?.id ?? 'default',
+                    workDir: activeSession?.workDir ?? Directory.current.path,
+                  )
+                : FileDiffPanel(
+                    checkpoint: ckpt,
+                    session: activeSession,
+                    message: provider.activeDiffMessage,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建右侧面板顶部单个切换 Tab
+  Widget _buildRightPanelTabItem({
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    bool hasDot = false,
+    Color? dotColor,
+  }) {
+    final isDark = AgentHubTheme.isDark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEBEBEB))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? AgentHubTheme.textPrimary : AgentHubTheme.textSecondary,
+              ),
+            ),
+            if (hasDot) ...[
+              const SizedBox(width: 5),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: dotColor ?? const Color(0xFF2EA44F),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

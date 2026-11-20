@@ -25,6 +25,7 @@ import '../services/cron_scheduler_service.dart';
 import '../services/gateway_server.dart';
 import '../services/tray_service.dart';
 import '../services/wechat_channel_service.dart';
+import '../services/project_service_manager.dart';
 import '../theme/agenthub_theme.dart';
 
 /// 右侧内容区域展示类型（支持后续扩展）
@@ -32,6 +33,7 @@ enum RightPanelType {
   none,
   fileDiff,
   filePreview,
+  serviceRunner,
 }
 
 /// 全局应用状态管理
@@ -118,11 +120,23 @@ class AppStateProvider extends ChangeNotifier {
     }
   }
 
-  /// 关闭文件预览，返回文件修改 Diff 面板
+  RightPanelType _lastActiveRightTab = RightPanelType.fileDiff;
+  RightPanelType get lastActiveRightTab => _lastActiveRightTab;
+
+  /// 切换右侧面板Tab模式
+  void switchRightPanelTab(RightPanelType type) {
+    if (type == RightPanelType.fileDiff || type == RightPanelType.serviceRunner) {
+      _lastActiveRightTab = type;
+    }
+    _rightPanelType = type;
+    notifyListeners();
+  }
+
+  /// 关闭文件预览，返回上一次激活的右侧标签面板
   void closeFilePreview() {
     _previewFilePath = null;
     _previewFileContent = null;
-    _rightPanelType = RightPanelType.fileDiff;
+    _rightPanelType = _lastActiveRightTab;
     notifyListeners();
   }
 
@@ -889,6 +903,9 @@ class AppStateProvider extends ChangeNotifier {
             assistantMessage.toolSteps.addAll(event.toolSteps);
             assistantMessage.toolName = event.toolSteps.last.toolName;
             assistantMessage.toolInput = event.toolSteps.last.input;
+            for (final step in event.toolSteps) {
+              _syncServiceCommandIfDetected(session, step.toolName, step.input);
+            }
           } else if (event.toolName != null && event.toolName!.isNotEmpty) {
             inThinkingPhase = false;
             assistantMessage.isThinking = false;
@@ -899,6 +916,7 @@ class AppStateProvider extends ChangeNotifier {
               input: event.toolInput,
               status: ToolStepStatus.running,
             ));
+            _syncServiceCommandIfDetected(session, event.toolName!, event.toolInput);
           }
 
           // 3. 工具执行结果回填
@@ -1547,5 +1565,47 @@ class AppStateProvider extends ChangeNotifier {
     } catch (_) {}
 
     return null;
+  }
+
+  /// 智能识别 Claude 是否发起了项目启动命令，并同步至服务控制台
+  void _syncServiceCommandIfDetected(ChatSessionModel session, String toolName, String? input) {
+    final lower = toolName.toLowerCase();
+    if (!lower.contains('bash') && !lower.contains('cmd') && !lower.contains('exec')) {
+      return;
+    }
+    if (input == null || input.trim().isEmpty) return;
+
+    String cmd = '';
+    try {
+      final decoded = jsonDecode(input);
+      if (decoded is Map && decoded['command'] != null) {
+        cmd = decoded['command'].toString().trim();
+      }
+    } catch (_) {
+      cmd = input.trim();
+    }
+
+    if (cmd.isEmpty) return;
+    final lowerCmd = cmd.toLowerCase();
+
+    final isServiceCmd = lowerCmd.startsWith('npm run dev') ||
+        lowerCmd.startsWith('npm start') ||
+        lowerCmd.startsWith('yarn dev') ||
+        lowerCmd.startsWith('yarn start') ||
+        lowerCmd.startsWith('pnpm dev') ||
+        lowerCmd.startsWith('pnpm start') ||
+        lowerCmd.startsWith('flutter run') ||
+        (lowerCmd.contains('python') && (lowerCmd.contains('app.py') || lowerCmd.contains('main.py') || lowerCmd.contains('manage.py runserver'))) ||
+        lowerCmd.startsWith('go run') ||
+        lowerCmd.startsWith('cargo run') ||
+        lowerCmd.startsWith('vite') ||
+        lowerCmd.startsWith('next dev');
+
+    if (isServiceCmd) {
+      final workDir = session.workDir ?? Directory.current.path;
+      final inst = ProjectServiceManager.instance.getOrCreateInstance(session.id, workDir);
+      inst.command = cmd;
+      notifyListeners();
+    }
   }
 }

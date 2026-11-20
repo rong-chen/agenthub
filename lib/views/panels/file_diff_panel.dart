@@ -495,64 +495,39 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
     if (ckpt == null) {
       return Container(
         color: isDark ? const Color(0xFF141414) : const Color(0xFFF9F8F5),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
-                border: Border(bottom: BorderSide(color: AgentHubTheme.border)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.edit_document, size: 16, color: AgentHubTheme.primaryRed),
-                  const SizedBox(width: 8),
-                  const Text(
-                    '文件修改',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.difference_outlined,
-                        size: 48,
-                        color: isDark ? const Color(0xFF333333) : const Color(0xFFD0D0D0),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        '暂无文件修改',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AgentHubTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '在会话中执行修改代码任务后，文件变动与行级 Diff 将实时呈现于此。',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AgentHubTheme.textTertiary,
-                          height: 1.5,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.difference_outlined,
+                  size: 48,
+                  color: isDark ? const Color(0xFF333333) : const Color(0xFFD0D0D0),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  '暂无文件修改',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AgentHubTheme.textSecondary,
                   ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Text(
+                  '在会话中执行修改代码任务后，文件变动与行级 Diff 将实时呈现于此。',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AgentHubTheme.textTertiary,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       );
     }
