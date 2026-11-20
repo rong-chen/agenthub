@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +31,10 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
   bool _autoScroll = true;
   bool _viewBackgroundService = false;
 
+  Timer? _taskLogPollTimer;
+  String? _trackedOutputPath;
+  String? _trackedOutputContent;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +43,7 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
 
   @override
   void dispose() {
+    _taskLogPollTimer?.cancel();
     _serviceManager.removeListener(_onUpdate);
     _scrollController.dispose();
     super.dispose();
@@ -58,6 +65,55 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
     }
   }
 
+  /// 检查步骤输出中是否包含 Claude 后台任务日志重定向文件并持续轮询读取
+  void _checkAndTrackTaskOutputFile(ToolStepModel? step) {
+    if (step == null || step.output == null) {
+      if (_trackedOutputPath != null) _stopTaskLogPolling();
+      return;
+    }
+
+    final match = RegExp(r'Output is being written to:\s*([^\s\r\n]+\.output)').firstMatch(step.output!);
+    if (match != null) {
+      final path = match.group(1)?.trim();
+      if (path != null && path.isNotEmpty && path != _trackedOutputPath) {
+        _trackedOutputPath = path;
+        _startTaskLogPolling(path);
+      }
+    } else if (_trackedOutputPath != null) {
+      _stopTaskLogPolling();
+    }
+  }
+
+  void _startTaskLogPolling(String filePath) {
+    _taskLogPollTimer?.cancel();
+    _readTaskOutputFile(filePath);
+    _taskLogPollTimer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
+      _readTaskOutputFile(filePath);
+    });
+  }
+
+  void _stopTaskLogPolling() {
+    _taskLogPollTimer?.cancel();
+    _taskLogPollTimer = null;
+    _trackedOutputPath = null;
+    _trackedOutputContent = null;
+  }
+
+  Future<void> _readTaskOutputFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        if (mounted && content != _trackedOutputContent) {
+          setState(() {
+            _trackedOutputContent = content;
+          });
+          _scrollToBottomIfNeeded();
+        }
+      }
+    } catch (_) {}
+  }
+
   /// 复制日志
   void _copyLogs(String content) {
     if (content.isEmpty) return;
@@ -75,13 +131,15 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
 
     // 优先取选中的命令步骤，否则取当前会话最新一条命令步骤
     final activeStep = provider.activeConsoleStep ?? (allCmdSteps.isNotEmpty ? allCmdSteps.last : null);
+    _checkAndTrackTaskOutputFile(activeStep);
 
     // 查询当前项目的后台常驻服务实例
     final bgInstance = _serviceManager.getInstance(widget.sessionId);
     final hasRunningBgService = bgInstance != null && bgInstance.status == ServiceStatus.running;
 
-    // 如果没有点击特定命令但有运行中的后台服务，自动查看后台服务
+    // 是否显示后台管理服务
     final showBgService = _viewBackgroundService || (activeStep == null && hasRunningBgService);
+    final isTrackedBgTask = _trackedOutputContent != null;
 
     return Container(
       color: isDark ? const Color(0xFF0E1117) : const Color(0xFF1E1E1E),
@@ -104,7 +162,7 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
                 Expanded(
                   child: showBgService && bgInstance != null
                       ? Text(
-                          '> ${bgInstance.command} (后台服务)',
+                          '> ${bgInstance.command} (开发服务)',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -136,6 +194,8 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
                 // 状态胶囊
                 if (showBgService && bgInstance != null) ...[
                   _buildStatusPill('运行中 PID: ${bgInstance.pid ?? ''}', const Color(0xFF2EA44F)),
+                ] else if (isTrackedBgTask) ...[
+                  _buildStatusPill('开发服务运行中', const Color(0xFF2EA44F)),
                 ] else if (activeStep != null) ...[
                   _buildStepStatusPill(activeStep.status),
                 ],
@@ -206,6 +266,8 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
                     if (showBgService && bgInstance != null) {
                       final content = bgInstance.logs.map((l) => l.text).join('\n');
                       _copyLogs(content);
+                    } else if (isTrackedBgTask && _trackedOutputContent != null) {
+                      _copyLogs(_trackedOutputContent!);
                     } else if (activeStep != null) {
                       _copyLogs(activeStep.output ?? activeStep.input ?? '');
                     }
@@ -330,10 +392,11 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
     );
   }
 
-  /// 渲染单条命令步骤的执行日志
+  /// 渲染单条命令步骤的执行日志（包含 Claude 后台任务输出重定向自动提取）
   Widget _buildStepLogs(ToolStepModel step) {
-    final rawOutput = step.output;
-    final isRunning = step.status == ToolStepStatus.running;
+    final rawOutput = _trackedOutputContent ?? step.output;
+    final isTrackedBg = _trackedOutputContent != null;
+    final isRunning = step.status == ToolStepStatus.running || isTrackedBg;
     final timeStr =
         '${step.timestamp.hour.toString().padLeft(2, '0')}:${step.timestamp.minute.toString().padLeft(2, '0')}:${step.timestamp.second.toString().padLeft(2, '0')}';
 
@@ -378,7 +441,9 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '发起时间: $timeStr | 状态: ${step.status == ToolStepStatus.running ? "执行中" : (step.status == ToolStepStatus.success ? "成功" : "失败")}',
+                  isTrackedBg
+                      ? '发起时间: $timeStr | 运行模式: 长期后台开发服务 | 状态: 实时流式输出中'
+                      : '发起时间: $timeStr | 状态: ${step.status == ToolStepStatus.running ? "执行中" : (step.status == ToolStepStatus.success ? "成功" : "失败")}',
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 10,
@@ -398,7 +463,7 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
                 fontFamily: 'monospace',
                 fontSize: 11.5,
                 height: 1.4,
-                color: step.status == ToolStepStatus.error
+                color: (step.status == ToolStepStatus.error && !isTrackedBg)
                     ? const Color(0xFFF85149)
                     : const Color(0xFFE6EDF3),
               ),
