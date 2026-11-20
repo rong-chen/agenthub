@@ -23,6 +23,21 @@ class ToolStepModel {
   final List<ToolStepModel> subSteps;
   bool isExpanded;
 
+  /// 获取真实的原始 shell 命令
+  String get actualCommand {
+    if (input != null && input!.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(input!);
+        if (decoded is Map && decoded['command'] != null) {
+          return decoded['command'].toString().trim();
+        }
+      } catch (_) {
+        return input!.trim();
+      }
+    }
+    return target;
+  }
+
   ToolStepModel({
     required this.id,
     required this.toolName,

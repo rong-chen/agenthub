@@ -2,13 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/tool_step_model.dart';
 import '../../providers/app_state_provider.dart';
 import '../../services/project_service_manager.dart';
-import '../../theme/agenthub_theme.dart';
 
-/// 命令与后台服务运行日志控制台面板
+/// 沉浸式命令行与后台服务控制台面板
 class ProjectServicePanel extends StatefulWidget {
   final String sessionId;
   final String workDir;
@@ -29,7 +30,6 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
   final ScrollController _scrollController = ScrollController();
   final ProjectServiceManager _serviceManager = ProjectServiceManager.instance;
   bool _autoScroll = true;
-  bool _viewBackgroundService = false;
 
   Timer? _taskLogPollTimer;
   String? _trackedOutputPath;
@@ -119,13 +119,69 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
     if (content.isEmpty) return;
     Clipboard.setData(ClipboardData(text: content));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制控制台日志'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('已复制终端日志'), duration: Duration(seconds: 1)),
     );
+  }
+
+  /// 构建支持点击打开 URL 的富文本 TextSpan
+  List<InlineSpan> _buildLinkifiedSpans(String text, TextStyle baseStyle) {
+    final spans = <InlineSpan>[];
+    final urlRegex = RegExp(r'''(https?://[^\s'"()<>\uFF08\uFF09]+)''');
+
+    int lastIndex = 0;
+    for (final match in urlRegex.allMatches(text)) {
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(
+          text: text.substring(lastIndex, match.start),
+          style: baseStyle,
+        ));
+      }
+
+      final url = match.group(0)!;
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () async {
+                final uri = Uri.tryParse(url);
+                if (uri != null) {
+                  try {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } catch (_) {}
+                }
+              },
+              child: Text(
+                url,
+                style: baseStyle.copyWith(
+                  color: const Color(0xFF58A6FF),
+                  decoration: TextDecoration.underline,
+                  decorationColor: const Color(0xFF58A6FF),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: baseStyle,
+      ));
+    }
+
+    return spans;
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AgentHubTheme.isDark;
     final provider = context.watch<AppStateProvider>();
     final allCmdSteps = provider.currentSessionCommandSteps;
 
@@ -138,112 +194,58 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
     final hasRunningBgService = bgInstance != null && bgInstance.status == ServiceStatus.running;
 
     // 是否显示后台管理服务
-    final showBgService = _viewBackgroundService || (activeStep == null && hasRunningBgService);
+    final showBgService = activeStep == null && hasRunningBgService;
     final isTrackedBgTask = _trackedOutputContent != null;
 
+    final dirName = widget.workDir.isNotEmpty ? p.basename(widget.workDir) : 'terminal';
+
     return Container(
-      color: isDark ? const Color(0xFF0E1117) : const Color(0xFF1E1E1E),
+      color: const Color(0xFF0D1117),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 顶部控制与命令选择栏
+          // 终端顶部控制栏
           Container(
-            height: 40,
+            height: 36,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF161B22) : const Color(0xFF252526),
-              border: Border(bottom: BorderSide(color: AgentHubTheme.border)),
+            decoration: const BoxDecoration(
+              color: Color(0xFF161B22),
+              border: Border(bottom: BorderSide(color: Color(0xFF30363D))),
             ),
             child: Row(
               children: [
-                // 终端图标与当前展示命令
-                Icon(Icons.terminal, size: 15, color: AgentHubTheme.primaryRed),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: showBgService && bgInstance != null
-                      ? Text(
-                          '> ${bgInstance.command} (开发服务)',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        )
-                      : activeStep != null
-                          ? Text(
-                              '> ${activeStep.target.isNotEmpty ? activeStep.target : activeStep.actionLabel}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              '暂无命令输出',
-                              style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary),
-                            ),
-                ),
-                const SizedBox(width: 8),
+                // 经典终端红黄绿圆点装饰
+                Container(width: 9, height: 9, decoration: const BoxDecoration(color: Color(0xFFFF5F56), shape: BoxShape.circle)),
+                const SizedBox(width: 6),
+                Container(width: 9, height: 9, decoration: const BoxDecoration(color: Color(0xFFFFBD2E), shape: BoxShape.circle)),
+                const SizedBox(width: 6),
+                Container(width: 9, height: 9, decoration: const BoxDecoration(color: Color(0xFF27C93F), shape: BoxShape.circle)),
+                const SizedBox(width: 12),
 
-                // 状态胶囊
-                if (showBgService && bgInstance != null) ...[
-                  _buildStatusPill('运行中 PID: ${bgInstance.pid ?? ''}', const Color(0xFF2EA44F)),
-                ] else if (isTrackedBgTask) ...[
-                  _buildStatusPill('开发服务运行中', const Color(0xFF2EA44F)),
-                ] else if (activeStep != null) ...[
-                  _buildStepStatusPill(activeStep.status),
-                ],
-
-                const SizedBox(width: 8),
-
-                // 如果有后台服务，显示切换药丸
-                if (hasRunningBgService) ...[
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _viewBackgroundService = !_viewBackgroundService;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: showBgService
-                            ? const Color(0xFF2EA44F).withValues(alpha: 0.2)
-                            : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFF333333)),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: showBgService ? const Color(0xFF2EA44F) : AgentHubTheme.border,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF2EA44F),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            showBgService ? '查看命令' : '开发服务',
-                            style: const TextStyle(fontSize: 10, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
+                // 终端标签名
+                Icon(Icons.terminal, size: 14, color: const Color(0xFF8B949E)),
+                const SizedBox(width: 6),
+                Text(
+                  dirName,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFC9D1D9),
                   ),
-                  const SizedBox(width: 8),
+                ),
+                const Spacer(),
+
+                // 状态指示
+                if (showBgService) ...[
+                  _buildStatusDot('运行中 PID: ${bgInstance.pid ?? ""}', const Color(0xFF2EA44F)),
+                ] else if (isTrackedBgTask) ...[
+                  _buildStatusDot('开发服务运行中', const Color(0xFF2EA44F)),
+                ] else if (activeStep != null) ...[
+                  _buildStepStatusDot(activeStep.status),
                 ],
+
+                const SizedBox(width: 8),
 
                 // 自动滚动开关
                 InkWell(
@@ -253,17 +255,17 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     child: Icon(
                       _autoScroll ? Icons.arrow_downward : Icons.pause_circle_outline,
-                      size: 15,
-                      color: _autoScroll ? const Color(0xFF2EA44F) : AgentHubTheme.textSecondary,
+                      size: 14,
+                      color: _autoScroll ? const Color(0xFF2EA44F) : const Color(0xFF8B949E),
                     ),
                   ),
                 ),
                 const SizedBox(width: 6),
 
-                // 复制全部日志
+                // 复制日志
                 IconButton(
                   onPressed: () {
-                    if (showBgService && bgInstance != null) {
+                    if (showBgService) {
                       final content = bgInstance.logs.map((l) => l.text).join('\n');
                       _copyLogs(content);
                     } else if (isTrackedBgTask && _trackedOutputContent != null) {
@@ -272,239 +274,160 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
                       _copyLogs(activeStep.output ?? activeStep.input ?? '');
                     }
                   },
-                  icon: const Icon(Icons.copy, size: 14),
-                  tooltip: '复制控制台日志',
+                  icon: const Icon(Icons.copy, size: 13),
+                  tooltip: '复制控制台内容',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  color: AgentHubTheme.textSecondary,
+                  color: const Color(0xFF8B949E),
                 ),
               ],
             ),
           ),
 
-          // 终端主体区域
+          // 终端输出主体区
           Expanded(
-            child: showBgService && bgInstance != null
-                ? _buildBgServiceLogs(bgInstance)
+            child: showBgService
+                ? _buildBgServiceTerminal(bgInstance, dirName)
                 : activeStep != null
-                    ? _buildStepLogs(activeStep)
-                    : _buildEmptyState(isDark),
+                    ? _buildStepTerminal(activeStep, dirName)
+                    : _buildEmptyTerminal(dirName),
           ),
         ],
       ),
     );
   }
 
-  /// 状态小胶囊
-  Widget _buildStatusPill(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+  /// 状态小点
+  Widget _buildStatusDot(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 10.5,
+            fontWeight: FontWeight.bold,
+            color: color,
           ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  /// 步骤状态小胶囊
-  Widget _buildStepStatusPill(ToolStepStatus status) {
+  /// 步骤状态小点
+  Widget _buildStepStatusDot(ToolStepStatus status) {
     switch (status) {
       case ToolStepStatus.running:
-        return _buildStatusPill('执行中...', const Color(0xFF0969DA));
+        return _buildStatusDot('执行中...', const Color(0xFF0969DA));
       case ToolStepStatus.success:
-        return _buildStatusPill('已完成', const Color(0xFF2EA44F));
+        return _buildStatusDot('成功', const Color(0xFF2EA44F));
       case ToolStepStatus.error:
-        return _buildStatusPill('执行失败', const Color(0xFFCF222E));
+        return _buildStatusDot('失败', const Color(0xFFCF222E));
     }
   }
 
-  /// 渲染后台开发服务的流式日志
-  Widget _buildBgServiceLogs(ProjectServiceInstance inst) {
-    if (inst.logs.isEmpty) {
-      return const Center(
-        child: Text(
-          '后台开发服务已就绪，等待服务产生实时输出...',
-          style: TextStyle(color: Color(0xFF8B949E), fontSize: 12),
-        ),
-      );
-    }
-
-    return SelectionArea(
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(12),
-        itemCount: inst.logs.length,
-        itemBuilder: (context, index) {
-          final log = inst.logs[index];
-          final timeStr =
-              '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}:${log.timestamp.second.toString().padLeft(2, '0')}';
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 1),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '[$timeStr] ',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: Color(0xFF6E7681),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    log.text,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11.5,
-                      height: 1.35,
-                      color: log.isError ? const Color(0xFFF85149) : const Color(0xFFE6EDF3),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  /// 渲染单条命令步骤的执行日志（包含 Claude 后台任务输出重定向自动提取）
-  Widget _buildStepLogs(ToolStepModel step) {
+  /// 渲染纯正命令行风格的单步骤终端
+  Widget _buildStepTerminal(ToolStepModel step, String dirName) {
+    final cmd = step.actualCommand.isNotEmpty ? step.actualCommand : step.target;
     final rawOutput = _trackedOutputContent ?? step.output;
     final isTrackedBg = _trackedOutputContent != null;
     final isRunning = step.status == ToolStepStatus.running || isTrackedBg;
-    final timeStr =
-        '${step.timestamp.hour.toString().padLeft(2, '0')}:${step.timestamp.minute.toString().padLeft(2, '0')}:${step.timestamp.second.toString().padLeft(2, '0')}';
+
+    const baseTextStyle = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 12,
+      height: 1.45,
+      color: Color(0xFFC9D1D9),
+    );
 
     return SelectionArea(
       child: ListView(
         controller: _scrollController,
         padding: const EdgeInsets.all(14),
         children: [
-          // 命令行头信息
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF161B22),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFF30363D)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      '执行命令: ',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: Color(0xFF8B949E),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        step.target.isNotEmpty ? step.target : (step.input ?? ''),
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF58A6FF),
-                        ),
-                      ),
-                    ),
-                  ],
+          // 命令行提示符: ➜ opencode $ npm run dev
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '➜ ',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2EA44F),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  isTrackedBg
-                      ? '发起时间: $timeStr | 运行模式: 长期后台开发服务 | 状态: 实时流式输出中'
-                      : '发起时间: $timeStr | 状态: ${step.status == ToolStepStatus.running ? "执行中" : (step.status == ToolStepStatus.success ? "成功" : "失败")}',
+              ),
+              Text(
+                '$dirName ',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF58A6FF),
+                ),
+              ),
+              const Text(
+                '\$ ',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8B949E),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  cmd,
                   style: const TextStyle(
                     fontFamily: 'monospace',
-                    fontSize: 10,
-                    color: Color(0xFF6E7681),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
-          // 执行日志输出
+          // 输出内容（带自动 URL 识别与超链接交互）
           if (rawOutput != null && rawOutput.trim().isNotEmpty) ...[
-            Text(
-              rawOutput,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11.5,
-                height: 1.4,
-                color: (step.status == ToolStepStatus.error && !isTrackedBg)
-                    ? const Color(0xFFF85149)
-                    : const Color(0xFFE6EDF3),
+            Text.rich(
+              TextSpan(
+                children: _buildLinkifiedSpans(
+                  rawOutput,
+                  step.status == ToolStepStatus.error && !isTrackedBg
+                      ? baseTextStyle.copyWith(color: const Color(0xFFF85149))
+                      : baseTextStyle,
+                ),
               ),
             ),
           ] else if (isRunning) ...[
-            Row(
-              children: [
-                const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF58A6FF)),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  '命令正在后台执行中，等待输出流...',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11.5,
-                    color: Color(0xFF8B949E),
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
             const Text(
-              '命令执行完成，无标准输出。',
+              '正在等待命令执行输出...',
               style: TextStyle(
                 fontFamily: 'monospace',
-                fontSize: 11.5,
-                color: Color(0xFF6E7681),
+                fontSize: 12,
+                color: Color(0xFF8B949E),
               ),
             ),
           ],
 
           if (isRunning) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             const Text(
               '▋',
               style: TextStyle(
-                color: Color(0xFF58A6FF),
-                fontSize: 12,
+                color: Color(0xFF2EA44F),
+                fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -514,40 +437,153 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
     );
   }
 
-  /// 空态
-  Widget _buildEmptyState(bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.terminal_outlined,
-              size: 44,
-              color: isDark ? const Color(0xFF333333) : const Color(0xFFCCCCCC),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '命令控制台就绪',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AgentHubTheme.textSecondary,
+  /// 渲染纯正命令行风格的后台开发服务
+  Widget _buildBgServiceTerminal(ProjectServiceInstance inst, String dirName) {
+    const baseTextStyle = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 12,
+      height: 1.45,
+      color: Color(0xFFC9D1D9),
+    );
+
+    return SelectionArea(
+      child: ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(14),
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '➜ ',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2EA44F),
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '在左侧会话中点击任意命令步骤，即可在此查看该命令的执行日志；长期运行的开发服务将在此持续流式输出。',
+              Text(
+                '$dirName ',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF58A6FF),
+                ),
+              ),
+              const Text(
+                '\$ ',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8B949E),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  inst.command,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          if (inst.logs.isNotEmpty) ...[
+            ...inst.logs.map((log) {
+              return Text.rich(
+                TextSpan(
+                  children: _buildLinkifiedSpans(
+                    log.text,
+                    log.isError
+                        ? baseTextStyle.copyWith(color: const Color(0xFFF85149))
+                        : baseTextStyle,
+                  ),
+                ),
+              );
+            }),
+          ] else ...[
+            const Text(
+              '后台开发服务已就绪，正在接收输出流...',
               style: TextStyle(
+                fontFamily: 'monospace',
                 fontSize: 12,
-                color: AgentHubTheme.textTertiary,
-                height: 1.4,
+                color: Color(0xFF8B949E),
               ),
-              textAlign: TextAlign.center,
             ),
           ],
-        ),
+
+          if (inst.status == ServiceStatus.running) ...[
+            const SizedBox(height: 4),
+            const Text(
+              '▋',
+              style: TextStyle(
+                color: Color(0xFF2EA44F),
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 终端空态
+  Widget _buildEmptyTerminal(String dirName) {
+    return Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                '➜ ',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2EA44F),
+                ),
+              ),
+              Text(
+                '$dirName ',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF58A6FF),
+                ),
+              ),
+              const Text(
+                '\$ ',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8B949E),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '终端就绪。在左侧会话中点击任意命令，即可在此查看命令输出；点击网址链接可直接在浏览器中打开。',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: Color(0xFF6E7681),
+            ),
+          ),
+        ],
       ),
     );
   }
