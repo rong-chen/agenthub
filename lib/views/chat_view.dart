@@ -12,6 +12,7 @@ import '../providers/app_state_provider.dart';
 import '../services/attachment_service.dart';
 import '../services/database_service.dart';
 import '../theme/agenthub_theme.dart';
+import 'components/diff_dialog.dart';
 
 /// 对话交互视图
 class ChatView extends StatefulWidget {
@@ -621,168 +622,13 @@ class _ChatViewState extends State<ChatView> {
 
     showDialog(
       context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final diffContent = ckpt.diffContent ?? '';
-        final rawDiff = diffContent.trim().isNotEmpty ? diffContent : ckpt.diffSummary;
-
-        return Dialog(
-          backgroundColor: AgentHubTheme.cardBackground,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: AgentHubTheme.border),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 780,
-              maxHeight: 580,
-              minWidth: 520,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.difference_outlined, size: 18, color: AgentHubTheme.primaryRed),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '文件改动对比',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AgentHubTheme.primaryRed.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '${ckpt.changedFiles.length} 个文件',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AgentHubTheme.primaryRed,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        splashRadius: 18,
-                        tooltip: '关闭',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF141414) : const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AgentHubTheme.border),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _buildDiffContentView(rawDiff, isDark),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (!ckpt.isRolledBack) ...[
-                        OutlinedButton.icon(
-                          onPressed: provider.isBusy
-                              ? null
-                              : () async {
-                                  Navigator.of(ctx).pop();
-                                  _confirmRollback(provider, message);
-                                },
-                          icon: const Icon(Icons.undo, size: 14),
-                          label: const Text('回退此改动', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AgentHubTheme.primaryRed,
-                            side: BorderSide(color: AgentHubTheme.primaryRed.withValues(alpha: 0.5)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                      ],
-                      ElevatedButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AgentHubTheme.primaryRed,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        ),
-                        child: const Text('关闭', style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// 构建 Diff 语法高亮查看视图
-  Widget _buildDiffContentView(String diffText, bool isDark) {
-    final lines = diffText.split('\n');
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: lines.map((line) {
-              Color? bgColor;
-              Color textColor = isDark ? const Color(0xFFD4D4D4) : const Color(0xFF24292E);
-              FontWeight fontWeight = FontWeight.normal;
-
-              if (line.startsWith('+') && !line.startsWith('+++')) {
-                bgColor = isDark ? const Color(0x332EA44F) : const Color(0x3328A745);
-                textColor = isDark ? const Color(0xFF7EE787) : const Color(0xFF1E7E34);
-              } else if (line.startsWith('-') && !line.startsWith('---')) {
-                bgColor = isDark ? const Color(0x33CF222E) : const Color(0x33DC3545);
-                textColor = isDark ? const Color(0xFFF85149) : const Color(0xFFBD2130);
-              } else if (line.startsWith('@@')) {
-                bgColor = isDark ? const Color(0x24388BFD) : const Color(0x240366D6);
-                textColor = isDark ? const Color(0xFF58A6FF) : const Color(0xFF0366D6);
-                fontWeight = FontWeight.w600;
-              } else if (line.startsWith('diff --git') || line.startsWith('---') || line.startsWith('+++')) {
-                textColor = isDark ? const Color(0xFF8B949E) : const Color(0xFF586069);
-                fontWeight = FontWeight.w600;
-              }
-
-              return Container(
-                width: 740,
-                color: bgColor ?? Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1.5),
-                child: Text(
-                  line.isEmpty ? ' ' : line,
-                  style: TextStyle(
-                    fontFamily: 'Menlo, Courier, monospace',
-                    fontSize: 12,
-                    height: 1.4,
-                    color: textColor,
-                    fontWeight: fontWeight,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
+      builder: (ctx) => DiffDialog(
+        checkpoint: ckpt,
+        isBusy: provider.isBusy,
+        onRollback: () {
+          Navigator.of(ctx).pop();
+          _confirmRollback(provider, message);
+        },
       ),
     );
   }
