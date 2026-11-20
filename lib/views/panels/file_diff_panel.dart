@@ -2,7 +2,11 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
 import '../../models/checkpoint_model.dart';
+import '../../models/chat_message_model.dart';
+import '../../providers/app_state_provider.dart';
+import '../../services/checkpoint_service.dart';
 import '../../theme/agenthub_theme.dart';
 
 /// 代码差异行类型
@@ -47,14 +51,14 @@ class FileDiff {
   });
 }
 
-/// 基于行的 LCS 全量比对与 Unified Diff 解析器
+/// 行级 LCS 全量比对与 Unified Diff 解析器
 class DiffParser {
   /// 计算两个文件行级比对，生成包含全文件上下文的 DiffLine 列表
   static List<DiffLine> computeLineDiff(List<String> a, List<String> b) {
     final n = a.length;
     final m = b.length;
 
-    // 当文件极大时避免内存爆炸，设置阈值保护
+    // 当文件极大时避免内存爆炸
     if (n > 2500 || m > 2500 || (n * m > 4000000)) {
       return _fastLineDiff(a, b);
     }
@@ -106,7 +110,7 @@ class DiffParser {
     return stack.reversed.toList();
   }
 
-  /// 超大文件快速前后缀比对
+  /// 快速前后缀比对
   static List<DiffLine> _fastLineDiff(List<String> a, List<String> b) {
     int prefix = 0;
     while (prefix < a.length && prefix < b.length && a[prefix] == b[prefix]) {
@@ -162,7 +166,7 @@ class DiffParser {
     return lines;
   }
 
-  /// 过滤为紧凑改动视图（折叠远离改动处的未修改行）
+  /// 过滤紧凑改动视图
   static List<DiffLine> filterCompactLines(List<DiffLine> fullLines, {int contextMargin = 5}) {
     if (fullLines.isEmpty) return [];
 
@@ -207,7 +211,7 @@ class DiffParser {
     return result;
   }
 
-  /// 解析 Patch 字符串兜底
+  /// 兜底解析 Patch
   static List<FileDiff> parseRawPatch(String rawDiff) {
     final fileDiffs = <FileDiff>[];
     if (rawDiff.trim().isEmpty) return fileDiffs;
@@ -324,28 +328,28 @@ class DiffParser {
   }
 }
 
-/// 支持全量上下文与多文件平铺预览的 Diff 弹窗
-class DiffDialog extends StatefulWidget {
+/// 右侧三栏架构中的文件修改内容面板
+class FileDiffPanel extends StatefulWidget {
   final CheckpointModel checkpoint;
-  final bool isBusy;
-  final VoidCallback onRollback;
+  final ChatMessageModel? message;
+  final VoidCallback onClose;
 
-  const DiffDialog({
+  const FileDiffPanel({
     super.key,
     required this.checkpoint,
-    required this.isBusy,
-    required this.onRollback,
+    this.message,
+    required this.onClose,
   });
 
   @override
-  State<DiffDialog> createState() => _DiffDialogState();
+  State<FileDiffPanel> createState() => _FileDiffPanelState();
 }
 
-class _DiffDialogState extends State<DiffDialog> {
+class _FileDiffPanelState extends State<FileDiffPanel> {
   List<FileDiff> _files = [];
   bool _isLoading = true;
-  bool _showFullContext = true; // 默认展示完整上下文预览
-  final ScrollController _mainScrollController = ScrollController();
+  bool _showFullContext = true;
+  final ScrollController _scrollController = ScrollController();
   final Map<int, GlobalKey> _fileKeys = {};
 
   @override
@@ -355,13 +359,21 @@ class _DiffDialogState extends State<DiffDialog> {
   }
 
   @override
+  void didUpdateWidget(covariant FileDiffPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.checkpoint.id != widget.checkpoint.id) {
+      _loadFileDiffs();
+    }
+  }
+
+  @override
   void dispose() {
-    _mainScrollController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  /// 读取所有变动文件并生成包含完整上下文的比对结果
   Future<void> _loadFileDiffs() async {
+    setState(() => _isLoading = true);
     final ckpt = widget.checkpoint;
     final workDir = ckpt.workDir;
     final backupDir = ckpt.backupDir;
@@ -438,7 +450,6 @@ class _DiffDialogState extends State<DiffDialog> {
       } catch (_) {}
     }
 
-    // 兜底逻辑：如果无法读取磁盘文件，则解析保存的 patch
     if (result.isEmpty) {
       final raw = (ckpt.diffContent != null && ckpt.diffContent!.trim().isNotEmpty)
           ? ckpt.diffContent!
@@ -454,7 +465,6 @@ class _DiffDialogState extends State<DiffDialog> {
     }
   }
 
-  /// 快速滚动定位到指定文件
   void _scrollToIndex(int index) {
     final key = _fileKeys[index];
     if (key != null && key.currentContext != null) {
@@ -468,231 +478,245 @@ class _DiffDialogState extends State<DiffDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AppStateProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final totalAdditions = _files.fold<int>(0, (sum, f) => sum + f.additions);
     final totalDeletions = _files.fold<int>(0, (sum, f) => sum + f.deletions);
+    final isRolledBack = widget.checkpoint.isRolledBack;
 
-    return Dialog(
-      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E5E5)),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 960,
-          maxHeight: 740,
-          minWidth: 680,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 顶栏：标题、汇总徽章、模式切换与关闭按钮
-              Row(
-                children: [
-                  Icon(Icons.difference_outlined, size: 18, color: AgentHubTheme.primaryRed),
-                  const SizedBox(width: 8),
-                  const Text(
-                    '代码改动预览',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+    return Container(
+      color: isDark ? const Color(0xFF141414) : const Color(0xFFF9F8F5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 顶部控制栏
+          Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+              border: Border(bottom: BorderSide(color: AgentHubTheme.border)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.edit_document, size: 16, color: AgentHubTheme.primaryRed),
+                const SizedBox(width: 8),
+                const Text(
+                  '文件修改',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${_files.length} 个文件',
+                  style: TextStyle(fontSize: 11, color: AgentHubTheme.textSecondary),
+                ),
+                const SizedBox(width: 8),
+                // 增删统计徽章
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2EA44F).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    '共 ${_files.length} 个文件',
-                    style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary),
-                  ),
-                  const SizedBox(width: 10),
-                  // 增删统计徽章
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2EA44F).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4),
+                  child: Text(
+                    '+$totalAdditions',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF2EA44F),
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Text(
-                      '+$totalAdditions',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF2EA44F),
-                        fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCF222E).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '-$totalDeletions',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFFCF222E),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // 模式切换
+                InkWell(
+                  onTap: () => setState(() => _showFullContext = !_showFullContext),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _showFullContext
+                          ? AgentHubTheme.primaryRed.withValues(alpha: 0.1)
+                          : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE)),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.border,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFCF222E).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '-$totalDeletions',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFFCF222E),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  // 上下文预览切换按钮
-                  InkWell(
-                    onTap: () => setState(() => _showFullContext = !_showFullContext),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _showFullContext
-                            ? AgentHubTheme.primaryRed.withValues(alpha: 0.1)
-                            : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F0F0)),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.border,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showFullContext ? Icons.unfold_more : Icons.unfold_less,
+                          size: 12,
+                          color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary,
                         ),
+                        const SizedBox(width: 3),
+                        Text(
+                          _showFullContext ? '完整上下文' : '精简改动',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 回退按钮
+                InkWell(
+                  onTap: (isRolledBack || provider.isBusy)
+                      ? null
+                      : () async {
+                          if (widget.message != null) {
+                            await provider.rollbackMessageCheckpoint(widget.message!);
+                          } else {
+                            await CheckpointService.instance.rollback(widget.checkpoint);
+                            setState(() => widget.checkpoint.isRolledBack = true);
+                          }
+                        },
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isRolledBack
+                          ? (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE))
+                          : AgentHubTheme.primaryRed.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: isRolledBack
+                            ? AgentHubTheme.border
+                            : AgentHubTheme.primaryRed.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.undo,
+                          size: 12,
+                          color: isRolledBack ? AgentHubTheme.textTertiary : AgentHubTheme.primaryRed,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          isRolledBack ? '已回退' : '回退此改动',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isRolledBack ? AgentHubTheme.textTertiary : AgentHubTheme.primaryRed,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 关闭面板按钮
+                InkWell(
+                  onTap: widget.onClose,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 16, color: AgentHubTheme.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 多文件快速横向导航条
+          if (_files.length > 1) ...[
+            Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              color: isDark ? const Color(0xFF181818) : const Color(0xFFF2F0EB),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _files.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemBuilder: (context, index) {
+                  final item = _files[index];
+                  return InkWell(
+                    onTap: () => _scrollToIndex(index),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF24292E) : Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AgentHubTheme.border),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            _showFullContext ? Icons.unfold_more : Icons.unfold_less,
-                            size: 13,
-                            color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary,
+                          Icon(Icons.insert_drive_file_outlined, size: 11, color: AgentHubTheme.textSecondary),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.filePath,
+                            style: TextStyle(fontSize: 10, color: AgentHubTheme.textPrimary),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            _showFullContext ? '完整上下文' : '精简改动',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary,
-                            ),
+                            '+${item.additions} -${item.deletions}',
+                            style: TextStyle(fontSize: 9, color: AgentHubTheme.textTertiary),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => Navigator.of(context).pop(),
-                    splashRadius: 18,
-                    tooltip: '关闭',
-                  ),
-                ],
+                  );
+                },
               ),
-              const SizedBox(height: 10),
+            ),
+          ],
 
-              // 多文件快速导航条
-              if (_files.length > 1) ...[
-                Container(
-                  height: 32,
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _files.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 6),
-                    itemBuilder: (context, index) {
-                      final item = _files[index];
-                      return InkWell(
-                        onTap: () => _scrollToIndex(index),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF22272E) : const Color(0xFFF3F4F6),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: isDark ? const Color(0xFF373E47) : const Color(0xFFD0D7DE)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.insert_drive_file_outlined, size: 12, color: AgentHubTheme.textSecondary),
-                              const SizedBox(width: 5),
-                              Text(
-                                item.filePath,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AgentHubTheme.textPrimary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '+${item.additions} -${item.deletions}',
-                                style: TextStyle(fontSize: 10, color: AgentHubTheme.textTertiary),
-                              ),
-                            ],
-                          ),
+          // 主体展示区（支持自适应连续滚动）
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : _files.isEmpty
+                    ? Center(
+                        child: Text(
+                          '暂无变动文件内容',
+                          style: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 12),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-
-              // 所有被修改文件的连续平铺展示区
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                    : _files.isEmpty
-                        ? Center(
-                            child: Text(
-                              '暂无文件变动内容',
-                              style: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
-                            ),
-                          )
-                        : ListView.separated(
-                            controller: _mainScrollController,
-                            itemCount: _files.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 16),
-                            itemBuilder: (context, index) {
-                              final fileDiff = _files[index];
-                              final key = _fileKeys.putIfAbsent(index, () => GlobalKey());
-                              return _buildFileDiffCard(key, fileDiff, isDark);
-                            },
-                          ),
-              ),
-              const SizedBox(height: 14),
-
-              // 底部操作栏
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (!widget.checkpoint.isRolledBack) ...[
-                    OutlinedButton.icon(
-                      onPressed: widget.isBusy ? null : widget.onRollback,
-                      icon: const Icon(Icons.undo, size: 14),
-                      label: const Text('回退此改动', style: TextStyle(fontSize: 12)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AgentHubTheme.primaryRed,
-                        side: BorderSide(color: AgentHubTheme.primaryRed.withValues(alpha: 0.5)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      )
+                    : ListView.separated(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _files.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 14),
+                        itemBuilder: (context, index) {
+                          final fileDiff = _files[index];
+                          final key = _fileKeys.putIfAbsent(index, () => GlobalKey());
+                          return _buildFileCard(key, fileDiff, isDark);
+                        },
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AgentHubTheme.primaryRed,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                    ),
-                    child: const Text('关闭', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
-              ),
-            ],
           ),
-        ),
+        ],
       ),
     );
   }
 
-  /// 构建单个文件的 Diff 展示卡片
-  Widget _buildFileDiffCard(Key key, FileDiff fileDiff, bool isDark) {
+  /// 构建单个文件的 Diff 卡片
+  Widget _buildFileCard(Key key, FileDiff fileDiff, bool isDark) {
     final displayLines = _showFullContext
         ? fileDiff.lines
         : DiffParser.filterCompactLines(fileDiff.lines);
@@ -701,42 +725,42 @@ class _DiffDialogState extends State<DiffDialog> {
       key: key,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0D1117) : const Color(0xFFFAFBFC),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 文件头部标题条
+          // 文件标题条
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF161B22) : const Color(0xFFF0F2F5),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
               border: Border(
                 bottom: BorderSide(color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE)),
               ),
             ),
             child: Row(
               children: [
-                Icon(Icons.description_outlined, size: 14, color: AgentHubTheme.textSecondary),
-                const SizedBox(width: 8),
+                Icon(Icons.description_outlined, size: 13, color: AgentHubTheme.textSecondary),
+                const SizedBox(width: 6),
                 Text(
                   fileDiff.filePath,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),
                 _buildFileTypeBadge(fileDiff.fileType),
                 const Spacer(),
                 Text(
                   '+${fileDiff.additions} 行  -${fileDiff.deletions} 行',
-                  style: TextStyle(fontSize: 11, color: AgentHubTheme.textSecondary),
+                  style: TextStyle(fontSize: 10, color: AgentHubTheme.textSecondary),
                 ),
               ],
             ),
           ),
-          // 单个文件的 Antigravity 风格带行号代码区域
-          _buildAntigravityDiffCodeView(displayLines, isDark),
+          // Antigravity 沉浸式代码比对视图
+          _buildAntigravityCodeView(displayLines, isDark),
         ],
       ),
     );
@@ -763,17 +787,17 @@ class _DiffDialogState extends State<DiffDialog> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(3)),
       child: Text(
         label,
-        style: TextStyle(fontSize: 10, color: fg, fontWeight: FontWeight.bold),
+        style: TextStyle(fontSize: 9, color: fg, fontWeight: FontWeight.bold),
       ),
     );
   }
 
-  /// 构建 Antigravity 沉浸式单列 Diff 视图
-  Widget _buildAntigravityDiffCodeView(List<DiffLine> lines, bool isDark) {
+  /// Antigravity 风格沉浸式代码比对视图
+  Widget _buildAntigravityCodeView(List<DiffLine> lines, bool isDark) {
     final lineNumberColor = isDark ? const Color(0xFF6E7681) : const Color(0xFF8C959F);
     final textNormalColor = isDark ? const Color(0xFFE6EDF3) : const Color(0xFF24292E);
 
@@ -784,11 +808,11 @@ class _DiffDialogState extends State<DiffDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: lines.map((line) {
-            // Hunk 头部：渲染折叠跳过计数小胶囊
+            // Hunk 折叠胶囊
             if (line.type == DiffLineType.hunkHeader) {
               final count = line.skippedCount;
               return Container(
-                width: 920,
+                width: 900,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 alignment: Alignment.center,
                 child: Container(
@@ -798,7 +822,7 @@ class _DiffDialogState extends State<DiffDialog> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    count > 0 ? '+$count' : '···',
+                    count > 0 ? '+$count more lines' : '···',
                     style: TextStyle(
                       fontFamily: 'Menlo, Monaco, Courier, monospace',
                       fontSize: 10,
@@ -820,21 +844,20 @@ class _DiffDialogState extends State<DiffDialog> {
               rowBg = isDark ? const Color(0xFF1E4620) : const Color(0xFFDCFFE4);
             }
 
-            // 单列行号：删除行左侧留空，新增行与普通行显示新行号
             final lineNumStr = isDelete
                 ? ''
                 : (line.newLineNumber != null ? '${line.newLineNumber}' : '');
 
             return Container(
-              width: 920,
+              width: 900,
               color: rowBg ?? Colors.transparent,
-              padding: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(vertical: 2.5),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 单列行号区域
+                  // 单列行号
                   SizedBox(
-                    width: 46,
+                    width: 44,
                     child: Text(
                       lineNumStr,
                       textAlign: TextAlign.right,
@@ -847,7 +870,7 @@ class _DiffDialogState extends State<DiffDialog> {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  // 代码文本正文：纯净代码，不带 + 或 - 前缀
+                  // 代码文本正文
                   Expanded(
                     child: Text(
                       line.text.isEmpty ? ' ' : line.text,

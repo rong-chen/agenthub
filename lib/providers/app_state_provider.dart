@@ -25,6 +25,12 @@ import '../services/tray_service.dart';
 import '../services/wechat_channel_service.dart';
 import '../theme/agenthub_theme.dart';
 
+/// 右侧内容区域展示类型（支持后续扩展）
+enum RightPanelType {
+  none,
+  fileDiff,
+}
+
 /// 全局应用状态管理
 class AppStateProvider extends ChangeNotifier {
   final DatabaseService _dbService = DatabaseService.instance;
@@ -51,6 +57,41 @@ class AppStateProvider extends ChangeNotifier {
   // 多会话管理
   List<ChatSessionModel> _sessions = [];
   String? _activeSessionId;
+
+  // 右侧内容面板（支持文件修改等多功能扩展）
+  RightPanelType _rightPanelType = RightPanelType.none;
+  CheckpointModel? _activeCheckpoint;
+  ChatMessageModel? _activeDiffMessage;
+
+  RightPanelType get rightPanelType => _rightPanelType;
+  CheckpointModel? get activeCheckpoint => _activeCheckpoint;
+  ChatMessageModel? get activeDiffMessage => _activeDiffMessage;
+
+  /// 打开文件修改面板
+  void openFileDiffPanel(CheckpointModel checkpoint, [ChatMessageModel? message]) {
+    _activeCheckpoint = checkpoint;
+    _activeDiffMessage = message;
+    _rightPanelType = RightPanelType.fileDiff;
+    notifyListeners();
+  }
+
+  /// 关闭右侧内容面板
+  void closeRightPanel() {
+    _rightPanelType = RightPanelType.none;
+    _activeCheckpoint = null;
+    _activeDiffMessage = null;
+    notifyListeners();
+  }
+
+  /// 切换右侧内容面板类型
+  void toggleRightPanel(RightPanelType type) {
+    if (_rightPanelType == type) {
+      closeRightPanel();
+    } else {
+      _rightPanelType = type;
+      notifyListeners();
+    }
+  }
 
   WebSocket? _wsClient;
 
@@ -782,6 +823,9 @@ class AppStateProvider extends ChangeNotifier {
           if (ckpt != null) {
             assistantMessage.checkpointId = ckpt.id;
             assistantMessage.checkpoint = ckpt;
+            if (session.id == _activeSessionId) {
+              openFileDiffPanel(ckpt, assistantMessage);
+            }
           }
         } catch (_) {}
 

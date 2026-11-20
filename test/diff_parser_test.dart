@@ -1,4 +1,4 @@
-import 'package:agenthub/views/components/diff_dialog.dart';
+import 'package:agenthub/views/panels/file_diff_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

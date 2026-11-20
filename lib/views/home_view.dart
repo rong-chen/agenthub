@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:window_manager/window_manager.dart';
+import '../models/chat_message_model.dart';
 import '../providers/app_state_provider.dart';
 import '../services/claude_profile_service.dart';
 import '../services/wechat_channel_service.dart';
@@ -14,6 +15,7 @@ import 'tasks_view.dart';
 import 'skills_view.dart';
 import 'settings_view.dart';
 import 'trash_view.dart';
+import 'panels/file_diff_panel.dart';
 
 /// 主窗口布局，包含左侧边栏与主工作区
 class HomeView extends StatefulWidget {
@@ -54,15 +56,20 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     // 强制同步当前主题模式，防止静态变量未即时更新
     AgentHubTheme.isDark = provider.isDarkTheme;
 
+    final showRightPanel = provider.rightPanelType != RightPanelType.none && provider.currentTabIndex == 0;
+
     return Scaffold(
       backgroundColor: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       body: Row(
         children: [
+          // 第一栏：左侧菜单栏
           if (!_isSidebarCollapsed) ...[
             _buildSidebar(context, provider),
             VerticalDivider(width: 1, thickness: 1, color: AgentHubTheme.divider),
           ],
+          // 第二栏：中间会话/主工作区
           Expanded(
+            flex: showRightPanel ? 5 : 10,
             child: Column(
               children: [
                 _buildTopBar(context, provider),
@@ -82,9 +89,35 @@ class _HomeViewState extends State<HomeView> with WindowListener {
               ],
             ),
           ),
+          // 第三栏：右侧内容区域（文件修改区域，支持后续扩展）
+          if (showRightPanel) ...[
+            VerticalDivider(width: 1, thickness: 1, color: AgentHubTheme.divider),
+            Expanded(
+              flex: 6,
+              child: _buildRightPanel(context, provider),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  /// 构建右侧内容区域
+  Widget _buildRightPanel(BuildContext context, AppStateProvider provider) {
+    switch (provider.rightPanelType) {
+      case RightPanelType.fileDiff:
+        final ckpt = provider.activeCheckpoint;
+        if (ckpt == null) {
+          return const SizedBox.shrink();
+        }
+        return FileDiffPanel(
+          checkpoint: ckpt,
+          message: provider.activeDiffMessage,
+          onClose: () => provider.closeRightPanel(),
+        );
+      case RightPanelType.none:
+        return const SizedBox.shrink();
+    }
   }
 
   /// 会话重命名弹窗
@@ -681,6 +714,54 @@ class _HomeViewState extends State<HomeView> with WindowListener {
               ),
             ),
           ),
+          if (provider.currentTabIndex == 0) ...[
+            const SizedBox(width: 8),
+            // 右侧面板开关
+            InkWell(
+              onTap: () {
+                if (provider.rightPanelType != RightPanelType.none) {
+                  provider.closeRightPanel();
+                } else {
+                  // 找到当前会话最近的一个带 checkpoint 的消息
+                  final lastCkptMsg = provider.messages.reversed
+                      .cast<ChatMessageModel?>()
+                      .firstWhere((m) => m?.checkpoint != null, orElse: () => null);
+                  if (lastCkptMsg?.checkpoint != null) {
+                    provider.openFileDiffPanel(lastCkptMsg!.checkpoint!, lastCkptMsg);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('当前会话暂无文件修改记录'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                }
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: provider.rightPanelType != RightPanelType.none
+                      ? AgentHubTheme.primaryRed.withValues(alpha: 0.1)
+                      : AgentHubTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: provider.rightPanelType != RightPanelType.none
+                        ? AgentHubTheme.primaryRed
+                        : AgentHubTheme.border,
+                  ),
+                ),
+                child: Icon(
+                  Icons.vertical_split_outlined,
+                  size: 16,
+                  color: provider.rightPanelType != RightPanelType.none
+                      ? AgentHubTheme.primaryRed
+                      : AgentHubTheme.textSecondary,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -5,14 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../models/attachment.dart';
-import '../models/checkpoint_model.dart';
 import '../models/chat_message_model.dart';
 import '../models/chat_session_model.dart';
 import '../providers/app_state_provider.dart';
 import '../services/attachment_service.dart';
 import '../services/database_service.dart';
 import '../theme/agenthub_theme.dart';
-import 'components/diff_dialog.dart';
 
 /// 对话交互视图
 class ChatView extends StatefulWidget {
@@ -453,14 +451,29 @@ class _ChatViewState extends State<ChatView> {
                         children: [
                           if (message.checkpoint != null && message.checkpoint!.changedFiles.isNotEmpty) ...[
                             InkWell(
-                              onTap: () => _showDiffDialog(context, provider, message),
+                              onTap: () {
+                                if (provider.rightPanelType == RightPanelType.fileDiff &&
+                                    provider.activeCheckpoint?.id == message.checkpoint!.id) {
+                                  provider.closeRightPanel();
+                                } else {
+                                  provider.openFileDiffPanel(message.checkpoint!, message);
+                                }
+                              },
                               borderRadius: BorderRadius.circular(6),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AgentHubTheme.cardBackground,
+                                  color: (provider.rightPanelType == RightPanelType.fileDiff &&
+                                          provider.activeCheckpoint?.id == message.checkpoint!.id)
+                                      ? AgentHubTheme.primaryRed.withValues(alpha: 0.1)
+                                      : AgentHubTheme.cardBackground,
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AgentHubTheme.border),
+                                  border: Border.all(
+                                    color: (provider.rightPanelType == RightPanelType.fileDiff &&
+                                            provider.activeCheckpoint?.id == message.checkpoint!.id)
+                                        ? AgentHubTheme.primaryRed
+                                        : AgentHubTheme.border,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -468,13 +481,19 @@ class _ChatViewState extends State<ChatView> {
                                     Icon(
                                       Icons.difference_outlined,
                                       size: 13,
-                                      color: AgentHubTheme.textSecondary,
+                                      color: (provider.rightPanelType == RightPanelType.fileDiff &&
+                                              provider.activeCheckpoint?.id == message.checkpoint!.id)
+                                          ? AgentHubTheme.primaryRed
+                                          : AgentHubTheme.textSecondary,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       '查看改动',
                                       style: TextStyle(
-                                        color: AgentHubTheme.textSecondary,
+                                        color: (provider.rightPanelType == RightPanelType.fileDiff &&
+                                                provider.activeCheckpoint?.id == message.checkpoint!.id)
+                                            ? AgentHubTheme.primaryRed
+                                            : AgentHubTheme.textSecondary,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -612,24 +631,6 @@ class _ChatViewState extends State<ChatView> {
           ),
         );
       },
-    );
-  }
-
-  /// 展示文件变动 Diff 详情弹窗
-  void _showDiffDialog(BuildContext context, AppStateProvider provider, ChatMessageModel message) {
-    final CheckpointModel? ckpt = message.checkpoint;
-    if (ckpt == null) return;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => DiffDialog(
-        checkpoint: ckpt,
-        isBusy: provider.isBusy,
-        onRollback: () {
-          Navigator.of(ctx).pop();
-          _confirmRollback(provider, message);
-        },
-      ),
     );
   }
 
