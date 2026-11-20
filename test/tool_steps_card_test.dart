@@ -63,4 +63,31 @@ void main() {
     expect(find.text('批量运行命令 (2)'), findsOneWidget);
     expect(find.text('1 失败'), findsOneWidget);
   });
+
+  testWidgets('点击命令项在右侧控制台展示', (tester) async {
+    final provider = AppStateProvider();
+    final cmdStep = ToolStepModel.fromRaw(
+      toolName: 'Bash',
+      input: '{"command": "npm run dev"}',
+      status: ToolStepStatus.running,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AppStateProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: ToolStepsCard(steps: [cmdStep]),
+          ),
+        ),
+      ),
+    );
+
+    // 点击该命令文本
+    await tester.tap(find.text('npm run dev'));
+    await tester.pumpAndSettle();
+
+    expect(provider.rightPanelType, RightPanelType.serviceRunner);
+    expect(provider.activeConsoleStep?.target, 'npm run dev');
+  });
 }

@@ -122,6 +122,31 @@ class AppStateProvider extends ChangeNotifier {
 
   RightPanelType _lastActiveRightTab = RightPanelType.fileDiff;
   RightPanelType get lastActiveRightTab => _lastActiveRightTab;
+  ToolStepModel? _activeConsoleStep;
+  ToolStepModel? get activeConsoleStep => _activeConsoleStep;
+
+  /// 在右侧控制台展示指定命令步骤的执行与日志
+  void openCommandInConsole(ToolStepModel step) {
+    _activeConsoleStep = step;
+    _lastActiveRightTab = RightPanelType.serviceRunner;
+    _rightPanelType = RightPanelType.serviceRunner;
+    notifyListeners();
+  }
+
+  /// 获取当前会话所有的命令步骤列表
+  List<ToolStepModel> get currentSessionCommandSteps {
+    final list = <ToolStepModel>[];
+    for (final msg in messages) {
+      for (final step in msg.toolSteps) {
+        if (step.isBatch) {
+          list.addAll(step.subSteps.where((s) => s.actionLabel.contains('命令') || s.toolName.toLowerCase().contains('bash')));
+        } else if (step.actionLabel.contains('命令') || step.toolName.toLowerCase().contains('bash')) {
+          list.add(step);
+        }
+      }
+    }
+    return list;
+  }
 
   /// 切换右侧面板Tab模式
   void switchRightPanelTab(RightPanelType type) {
@@ -931,6 +956,9 @@ class AppStateProvider extends ChangeNotifier {
                 target.status = (event.type == 'error' || (event.content != null && event.content!.toLowerCase().contains('error')))
                     ? ToolStepStatus.error
                     : ToolStepStatus.success;
+                if (_activeConsoleStep?.id == target.id) {
+                  _activeConsoleStep = target;
+                }
               }
             }
           }
@@ -1605,6 +1633,8 @@ class AppStateProvider extends ChangeNotifier {
       final workDir = session.workDir ?? Directory.current.path;
       final inst = ProjectServiceManager.instance.getOrCreateInstance(session.id, workDir);
       inst.command = cmd;
+      _lastActiveRightTab = RightPanelType.serviceRunner;
+      _rightPanelType = RightPanelType.serviceRunner;
       notifyListeners();
     }
   }

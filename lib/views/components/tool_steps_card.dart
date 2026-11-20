@@ -44,6 +44,7 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
     final isDark = AgentHubTheme.isDark;
     final isExpanded = _expandedStepIds.contains(step.id);
     final isFileAction = step.actionLabel.contains('文件');
+    final isCommandAction = step.actionLabel.contains('命令') || step.toolName.toLowerCase().contains('bash');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -89,7 +90,11 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
                     Expanded(
                       child: InkWell(
                         onTap: () {
-                          context.read<AppStateProvider>().openFileInRightPanel(step.target);
+                          if (isCommandAction) {
+                            context.read<AppStateProvider>().openCommandInConsole(step);
+                          } else {
+                            context.read<AppStateProvider>().openFileInRightPanel(step.target);
+                          }
                         },
                         borderRadius: BorderRadius.circular(4),
                         child: Text(
@@ -268,10 +273,17 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
                 Column(
                   children: subSteps.map((child) {
                     final isPy = child.target.endsWith('.py');
+                    final isBatchCommand = group.actionLabel.contains('命令') ||
+                        child.actionLabel.contains('命令') ||
+                        child.toolName.toLowerCase().contains('bash');
                     return InkWell(
                       onTap: () {
-                        final target = child.target.isNotEmpty ? child.target : child.actionLabel;
-                        context.read<AppStateProvider>().openFileInRightPanel(target);
+                        if (isBatchCommand) {
+                          context.read<AppStateProvider>().openCommandInConsole(child);
+                        } else {
+                          final target = child.target.isNotEmpty ? child.target : child.actionLabel;
+                          context.read<AppStateProvider>().openFileInRightPanel(target);
+                        }
                       },
                       borderRadius: BorderRadius.circular(4),
                       child: Padding(
