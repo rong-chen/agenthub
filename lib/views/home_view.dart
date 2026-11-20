@@ -67,7 +67,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           final totalWidth = constraints.maxWidth;
           final mainAreaWidth = !_isSidebarCollapsed ? (totalWidth - 221.0) : totalWidth;
 
-          final minRightWidth = 320.0;
+          final minRightWidth = 260.0;
           final minChatWidth = 360.0;
           final maxRightWidth = max(minRightWidth, mainAreaWidth - minChatWidth);
 

@@ -9,6 +9,7 @@ import '../models/gateway_config.dart';
 import '../models/claude_profile.dart';
 import '../models/claude_process_instance.dart';
 import '../models/checkpoint_model.dart';
+import '../models/tool_step_model.dart';
 import '../utils/path_utils.dart';
 
 /// 基于 SQLite 的本地数据存储与持久化服务
@@ -65,6 +66,7 @@ class DatabaseService {
               content TEXT NOT NULL,
               status TEXT NOT NULL,
               created_at INTEGER NOT NULL,
+              tool_steps TEXT,
               FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
             )
           ''');
@@ -256,6 +258,9 @@ class DatabaseService {
     try {
       await db.execute('ALTER TABLE sessions ADD COLUMN work_dir TEXT;');
     } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE messages ADD COLUMN tool_steps TEXT;');
+    } catch (_) {}
 
     try {
       await db.execute('''
@@ -325,6 +330,16 @@ class DatabaseService {
       final messages = messageRows.map((m) {
         final msgId = m['id'] as String;
         final ckpt = ckptMap[msgId];
+        List<ToolStepModel> toolSteps = [];
+        final rawSteps = m['tool_steps'] as String?;
+        if (rawSteps != null && rawSteps.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(rawSteps) as List;
+            toolSteps = decoded
+                .map((item) => ToolStepModel.fromJson(Map<String, dynamic>.from(item as Map)))
+                .toList();
+          } catch (_) {}
+        }
         return ChatMessageModel(
           id: msgId,
           role: MessageRole.values.firstWhere(
@@ -339,6 +354,7 @@ class DatabaseService {
           timestamp: DateTime.fromMillisecondsSinceEpoch(m['created_at'] as int),
           checkpointId: ckpt?.id,
           checkpoint: ckpt,
+          toolSteps: toolSteps,
         );
       }).toList();
 
@@ -479,6 +495,9 @@ class DatabaseService {
         'content': message.content,
         'status': message.status.name,
         'created_at': message.timestamp.millisecondsSinceEpoch,
+        'tool_steps': message.toolSteps.isNotEmpty
+            ? jsonEncode(message.toolSteps.map((s) => s.toJson()).toList())
+            : null,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );

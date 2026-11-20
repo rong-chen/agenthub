@@ -1,4 +1,5 @@
 import 'checkpoint_model.dart';
+import 'tool_step_model.dart';
 
 /// 消息角色类型
 enum MessageRole {
@@ -31,6 +32,7 @@ class ChatMessageModel {
   bool isThinking;
   String? checkpointId;
   CheckpointModel? checkpoint;
+  List<ToolStepModel> toolSteps;
 
   ChatMessageModel({
     required this.id,
@@ -46,7 +48,8 @@ class ChatMessageModel {
     this.isThinking = false,
     this.checkpointId,
     this.checkpoint,
-  });
+    List<ToolStepModel>? toolSteps,
+  }) : toolSteps = toolSteps ?? [];
 
   /// 转换为 JSON 格式
   Map<String, dynamic> toJson() {
@@ -62,11 +65,13 @@ class ChatMessageModel {
       'attachments': attachments,
       'thinking': thinking,
       'checkpointId': checkpointId,
+      'toolSteps': toolSteps.map((s) => s.toJson()).toList(),
     };
   }
 
   /// 从 JSON 恢复模型
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
+    final rawSteps = json['toolSteps'] as List? ?? [];
     return ChatMessageModel(
       id: json['id'] as String,
       role: MessageRole.values.firstWhere(
@@ -85,6 +90,9 @@ class ChatMessageModel {
       attachments: (json['attachments'] as List?)?.map((e) => e.toString()).toList(),
       thinking: json['thinking'] as String?,
       checkpointId: json['checkpointId'] as String?,
+      toolSteps: rawSteps
+          .map((item) => ToolStepModel.fromJson(Map<String, dynamic>.from(item as Map)))
+          .toList(),
     );
   }
 }

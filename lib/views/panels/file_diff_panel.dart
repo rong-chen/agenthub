@@ -2,11 +2,9 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:provider/provider.dart';
 import '../../models/checkpoint_model.dart';
 import '../../models/chat_message_model.dart';
 import '../../models/chat_session_model.dart';
-import '../../providers/app_state_provider.dart';
 import '../../theme/agenthub_theme.dart';
 
 /// 代码差异行类型
@@ -350,7 +348,7 @@ class FileDiffPanel extends StatefulWidget {
 class _FileDiffPanelState extends State<FileDiffPanel> {
   List<FileDiff> _files = [];
   bool _isLoading = true;
-  bool _showFullContext = true;
+  final bool _showFullContext = true;
   final ScrollController _scrollController = ScrollController();
   final Map<int, GlobalKey> _fileKeys = {};
 
@@ -490,7 +488,6 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AppStateProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ckpt = widget.checkpoint;
 
@@ -575,7 +572,6 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
 
     final totalAdditions = _files.fold<int>(0, (sum, f) => sum + f.additions);
     final totalDeletions = _files.fold<int>(0, (sum, f) => sum + f.deletions);
-    final isRolledBack = ckpt.isRolledBack;
 
     return Container(
       color: isDark ? const Color(0xFF141414) : const Color(0xFFF9F8F5),
@@ -637,87 +633,7 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
                   ),
                 ),
                 const Spacer(),
-                // 模式切换
-                InkWell(
-                  onTap: () => setState(() => _showFullContext = !_showFullContext),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _showFullContext
-                          ? AgentHubTheme.primaryRed.withValues(alpha: 0.1)
-                          : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE)),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.border,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _showFullContext ? Icons.unfold_more : Icons.unfold_less,
-                          size: 12,
-                          color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          _showFullContext ? '完整上下文' : '精简改动',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: _showFullContext ? AgentHubTheme.primaryRed : AgentHubTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // 回退按钮
-                InkWell(
-                  onTap: (isRolledBack || provider.isBusy)
-                      ? null
-                      : () async {
-                          await provider.rollbackCheckpoint(ckpt, widget.message);
-                        },
-                  borderRadius: BorderRadius.circular(4),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isRolledBack
-                          ? (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE))
-                          : AgentHubTheme.primaryRed.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isRolledBack
-                            ? AgentHubTheme.border
-                            : AgentHubTheme.primaryRed.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.undo,
-                          size: 12,
-                          color: isRolledBack ? AgentHubTheme.textTertiary : AgentHubTheme.primaryRed,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          isRolledBack ? '已回退' : '回退此改动',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: isRolledBack ? AgentHubTheme.textTertiary : AgentHubTheme.primaryRed,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 if (widget.onClose != null) ...[
-                  const SizedBox(width: 8),
                   InkWell(
                     onTap: widget.onClose,
                     borderRadius: BorderRadius.circular(4),

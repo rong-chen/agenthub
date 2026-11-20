@@ -13,6 +13,7 @@ import '../models/chat_session_model.dart';
 import '../models/skill_model.dart';
 import '../models/scheduled_task_model.dart';
 import '../models/task_log_model.dart';
+import '../models/tool_step_model.dart';
 import '../services/claude_process_manager.dart';
 import '../services/claude_profile_service.dart';
 import '../services/checkpoint_service.dart';
@@ -828,12 +829,33 @@ class AppStateProvider extends ChangeNotifier {
             assistantMessage.isThinking = false;
             assistantMessage.toolName = event.toolName;
             assistantMessage.toolInput = event.toolInput;
+            if (event.toolName != null && event.toolName!.isNotEmpty) {
+              final step = ToolStepModel.fromRaw(
+                toolName: event.toolName!,
+                input: event.toolInput,
+                status: ToolStepStatus.running,
+              );
+              assistantMessage.toolSteps.add(step);
+            }
           } else if (event.type == 'tool_result' || event.toolOutput != null) {
             assistantMessage.toolOutput = event.toolOutput;
+            if (assistantMessage.toolSteps.isNotEmpty) {
+              final runningSteps = assistantMessage.toolSteps.where((s) => s.status == ToolStepStatus.running).toList();
+              if (runningSteps.isNotEmpty) {
+                final target = runningSteps.last;
+                target.output = event.toolOutput;
+                target.status = (event.type == 'error' || (event.content != null && event.content!.toLowerCase().contains('error')))
+                    ? ToolStepStatus.error
+                    : ToolStepStatus.success;
+              }
+            }
           } else if (event.type == 'error') {
             assistantMessage.isThinking = false;
             assistantMessage.content = event.content ?? '执行异常';
             assistantMessage.status = MessageStatus.error;
+            for (final s in assistantMessage.toolSteps) {
+              if (s.status == ToolStepStatus.running) s.status = ToolStepStatus.error;
+            }
           }
           notifyListeners();
         }
@@ -841,10 +863,16 @@ class AppStateProvider extends ChangeNotifier {
         assistantMessage.isThinking = false;
         assistantMessage.content = '执行出错: $e';
         assistantMessage.status = MessageStatus.error;
+        for (final s in assistantMessage.toolSteps) {
+          if (s.status == ToolStepStatus.running) s.status = ToolStepStatus.error;
+        }
       } finally {
         assistantMessage.isThinking = false;
         if (assistantMessage.status != MessageStatus.error) {
           assistantMessage.status = MessageStatus.done;
+          for (final s in assistantMessage.toolSteps) {
+            if (s.status == ToolStepStatus.running) s.status = ToolStepStatus.success;
+          }
         }
 
         // 任务完成后对比文件生成 Checkpoint 快照

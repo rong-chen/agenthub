@@ -7,10 +7,12 @@ import 'package:provider/provider.dart';
 import '../models/attachment.dart';
 import '../models/chat_message_model.dart';
 import '../models/chat_session_model.dart';
+import '../models/tool_step_model.dart';
 import '../providers/app_state_provider.dart';
 import '../services/attachment_service.dart';
 import '../services/database_service.dart';
 import '../theme/agenthub_theme.dart';
+import 'components/tool_steps_card.dart';
 
 /// 对话交互视图
 class ChatView extends StatefulWidget {
@@ -307,55 +309,20 @@ class _ChatViewState extends State<ChatView> {
                           isThinking: message.isThinking,
                         ),
                       ],
-                      if (message.toolName != null && message.toolName!.isNotEmpty) ...[
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AgentHubTheme.isDark ? const Color(0xFF161616) : const Color(0xFFF2F2F2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AgentHubTheme.border),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.terminal_outlined, size: 13, color: AgentHubTheme.primaryRed),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '执行工具: ${message.toolName}',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary),
-                                  ),
-                                ],
-                              ),
-                              if (message.toolInput != null && message.toolInput!.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  message.toolInput!,
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                    color: AgentHubTheme.isDark ? const Color(0xFFE0E0E0) : const Color(0xFF222222),
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                              if (message.toolOutput != null && message.toolOutput!.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  message.toolOutput!,
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                    color: AgentHubTheme.textSecondary,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                      if (message.toolSteps.isNotEmpty) ...[
+                        ToolStepsCard(steps: message.toolSteps),
+                      ] else if (message.toolName != null && message.toolName!.isNotEmpty) ...[
+                        ToolStepsCard(
+                          steps: [
+                            ToolStepModel.fromRaw(
+                              toolName: message.toolName!,
+                              input: message.toolInput,
+                              output: message.toolOutput,
+                              status: message.status == MessageStatus.error
+                                  ? ToolStepStatus.error
+                                  : ToolStepStatus.success,
+                            ),
+                          ],
                         ),
                       ],
                       if (isUser || message.content.isNotEmpty || message.status == MessageStatus.streaming || message.status == MessageStatus.error) ...[
