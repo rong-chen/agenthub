@@ -671,18 +671,8 @@ class _ChatViewState extends State<ChatView> {
               border: Border.all(color: AgentHubTheme.border),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                if (!isWechatSession) ...[
-                  IconButton(
-                    icon: Icon(Icons.attach_file, size: 18, color: AgentHubTheme.textSecondary),
-                    tooltip: '添加图片或文件',
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                    constraints: const BoxConstraints(),
-                    onPressed: isInputDisabled ? null : _pickAttachments,
-                  ),
-                  const SizedBox(width: 6),
-                ],
                 Expanded(
                   child: Focus(
                     onKeyEvent: (node, event) {
@@ -721,12 +711,22 @@ class _ChatViewState extends State<ChatView> {
                         focusedBorder: InputBorder.none,
                         errorBorder: InputBorder.none,
                         disabledBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
+                if (!isWechatSession) ...[
+                  IconButton(
+                    icon: Icon(Icons.attach_file, size: 20, color: AgentHubTheme.textSecondary),
+                    tooltip: '添加图片或文件',
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(),
+                    onPressed: isInputDisabled ? null : _pickAttachments,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 if (provider.isBusy) ...[
                   OutlinedButton(
                     onPressed: () => provider.abortCurrentGeneration(),
