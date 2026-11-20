@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../models/checkpoint_model.dart';
 import '../../theme/agenthub_theme.dart';
@@ -16,12 +17,14 @@ class DiffLine {
   final int? oldLineNumber;
   final int? newLineNumber;
   final String text;
+  final int skippedCount;
 
   const DiffLine({
     required this.type,
     this.oldLineNumber,
     this.newLineNumber,
     required this.text,
+    this.skippedCount = 0,
   });
 }
 
@@ -57,6 +60,7 @@ class DiffParser {
 
     int oldLineCursor = 1;
     int newLineCursor = 1;
+    bool isFirstHunkOfFile = true;
 
     void flushCurrentFile() {
       if (currentPath.isNotEmpty || currentLines.isNotEmpty) {
@@ -73,6 +77,9 @@ class DiffParser {
       currentLines.clear();
       additions = 0;
       deletions = 0;
+      oldLineCursor = 1;
+      newLineCursor = 1;
+      isFirstHunkOfFile = true;
     }
 
     final hunkRegex = RegExp(r'^@@\s+-(\d+)(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@');
@@ -100,7 +107,6 @@ class DiffParser {
         continue;
       }
       if (line.startsWith('--- ') || line.startsWith('+++ ')) {
-        // 提取文件名备用
         if (currentPath.isEmpty && line.startsWith('+++ b/')) {
           currentPath = line.substring(6).trim();
         }
@@ -110,49 +116,62 @@ class DiffParser {
       // 检测区块头 @@ -start,count +start,count @@
       final hunkMatch = hunkRegex.firstMatch(line);
       if (hunkMatch != null) {
-        oldLineCursor = int.tryParse(hunkMatch.group(1) ?? '1') ?? 1;
-        newLineCursor = int.tryParse(hunkMatch.group(2) ?? '1') ?? 1;
+        final parsedOld = int.tryParse(hunkMatch.group(1) ?? '1') ?? 1;
+        final parsedNew = int.tryParse(hunkMatch.group(2) ?? '1') ?? 1;
+
+        int skipped = 0;
+        if (isFirstHunkOfFile) {
+          skipped = max(0, parsedNew - 1);
+          isFirstHunkOfFile = false;
+        } else {
+          skipped = max(0, parsedNew - newLineCursor);
+        }
+
+        oldLineCursor = parsedOld;
+        newLineCursor = parsedNew;
+
         currentLines.add(DiffLine(
           type: DiffLineType.hunkHeader,
-          text: '@@ 第 $newLineCursor 行 @@',
+          text: line,
+          skippedCount: skipped,
         ));
         continue;
       }
 
-      // 新增行
+      // 新增行：剥除开头的加号
       if (line.startsWith('+')) {
         additions++;
         currentLines.add(DiffLine(
           type: DiffLineType.add,
           newLineNumber: newLineCursor++,
-          text: line.substring(1),
+          text: line.length > 1 ? line.substring(1) : '',
         ));
         continue;
       }
 
-      // 删除行
+      // 删除行：剥除开头的减号
       if (line.startsWith('-')) {
         deletions++;
         currentLines.add(DiffLine(
           type: DiffLineType.delete,
           oldLineNumber: oldLineCursor++,
-          text: line.substring(1),
+          text: line.length > 1 ? line.substring(1) : '',
         ));
         continue;
       }
 
-      // 普通上下文行
+      // 普通上下文行：剥除开头的单空格，保持原生代码缩进
       if (line.startsWith(' ')) {
         currentLines.add(DiffLine(
           type: DiffLineType.context,
           oldLineNumber: oldLineCursor++,
           newLineNumber: newLineCursor++,
-          text: line.substring(1),
+          text: line.length > 1 ? line.substring(1) : '',
         ));
         continue;
       }
 
-      // 兜底处理无前缀的代码行
+      // 兜底处理无标记行
       if (line.trim().isNotEmpty) {
         currentLines.add(DiffLine(
           type: DiffLineType.context,
@@ -208,16 +227,16 @@ class _DiffDialogState extends State<DiffDialog> {
         : null;
 
     return Dialog(
-      backgroundColor: AgentHubTheme.cardBackground,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: AgentHubTheme.border),
+        side: BorderSide(color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E5E5)),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(
-          maxWidth: 860,
-          maxHeight: 640,
-          minWidth: 600,
+          maxWidth: 920,
+          maxHeight: 680,
+          minWidth: 640,
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -238,7 +257,7 @@ class _DiffDialogState extends State<DiffDialog> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2EA44F).withValues(alpha: 0.12),
+                      color: const Color(0xFF2EA44F).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -254,7 +273,7 @@ class _DiffDialogState extends State<DiffDialog> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFCF222E).withValues(alpha: 0.12),
+                      color: const Color(0xFFCF222E).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -296,11 +315,11 @@ class _DiffDialogState extends State<DiffDialog> {
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? (isDark ? const Color(0xFF333333) : const Color(0xFFE4E4E4))
-                                : (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5)),
+                                ? (isDark ? const Color(0xFF2D333B) : const Color(0xFFE4E4E4))
+                                : (isDark ? const Color(0xFF1E2228) : const Color(0xFFF5F5F5)),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: isSelected ? AgentHubTheme.primaryRed : AgentHubTheme.border,
+                              color: isSelected ? AgentHubTheme.primaryRed : Colors.transparent,
                             ),
                           ),
                           child: Row(
@@ -333,11 +352,11 @@ class _DiffDialogState extends State<DiffDialog> {
               // 当前文件头部条
               if (activeFile != null) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF202226) : const Color(0xFFEDEDED),
+                    color: isDark ? const Color(0xFF161B22) : const Color(0xFFF0F2F5),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                    border: Border.all(color: AgentHubTheme.border),
+                    border: Border.all(color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE)),
                   ),
                   child: Row(
                     children: [
@@ -359,19 +378,19 @@ class _DiffDialogState extends State<DiffDialog> {
                 ),
               ],
 
-              // 类似 Antigravity 的两列带行号 Diff 代码视图
+              // Antigravity 风格的沉浸式单列 Diff 编辑器视图
               Expanded(
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF141414) : const Color(0xFFF9F9F9),
+                    color: isDark ? const Color(0xFF0D1117) : const Color(0xFFFAFBFC),
                     borderRadius: activeFile != null
                         ? const BorderRadius.vertical(bottom: Radius.circular(8))
                         : BorderRadius.circular(8),
                     border: Border(
-                      left: BorderSide(color: AgentHubTheme.border),
-                      right: BorderSide(color: AgentHubTheme.border),
-                      bottom: BorderSide(color: AgentHubTheme.border),
+                      left: BorderSide(color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE)),
+                      right: BorderSide(color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE)),
+                      bottom: BorderSide(color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE)),
                     ),
                   ),
                   child: activeFile == null || activeFile.lines.isEmpty
@@ -381,7 +400,7 @@ class _DiffDialogState extends State<DiffDialog> {
                             style: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 12),
                           ),
                         )
-                      : _buildDiffEditorView(activeFile.lines, isDark),
+                      : _buildAntigravityDiffView(activeFile.lines, isDark),
                 ),
               ),
               const SizedBox(height: 14),
@@ -451,8 +470,11 @@ class _DiffDialogState extends State<DiffDialog> {
     );
   }
 
-  /// 构建仿 Antigravity 带行号的双列 Diff 表格视图
-  Widget _buildDiffEditorView(List<DiffLine> lines, bool isDark) {
+  /// 构建 Antigravity 沉浸式单列 Diff 视图
+  Widget _buildAntigravityDiffView(List<DiffLine> lines, bool isDark) {
+    final lineNumberColor = isDark ? const Color(0xFF6E7681) : const Color(0xFF8C959F);
+    final textNormalColor = isDark ? const Color(0xFFE6EDF3) : const Color(0xFF24292E);
+
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
@@ -460,99 +482,78 @@ class _DiffDialogState extends State<DiffDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: lines.map((line) {
-            // Hunk 头部行
+            // Hunk 头部：渲染折叠跳过计数小胶囊
             if (line.type == DiffLineType.hunkHeader) {
+              final count = line.skippedCount;
               return Container(
-                width: 820,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                color: isDark ? const Color(0xFF1E2228) : const Color(0xFFEBF1F8),
-                child: Text(
-                  line.text,
-                  style: TextStyle(
-                    fontFamily: 'Menlo, Courier, monospace',
-                    fontSize: 11,
-                    color: isDark ? const Color(0xFF58A6FF) : const Color(0xFF0969DA),
-                    fontWeight: FontWeight.bold,
+                width: 880,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                alignment: Alignment.center,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF21262D) : const Color(0xFFE1E4E8),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    count > 0 ? '+$count' : '···',
+                    style: TextStyle(
+                      fontFamily: 'Menlo, Monaco, Courier, monospace',
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? const Color(0xFF8B949E) : const Color(0xFF586069),
+                    ),
                   ),
                 ),
               );
             }
 
-            // 新增、删除或普通行
-            Color? rowBg;
-            Color textFg = isDark ? const Color(0xFFCCCCCC) : const Color(0xFF24292E);
-            String symbol = ' ';
-            Color symbolColor = Colors.transparent;
+            final isDelete = line.type == DiffLineType.delete;
+            final isAdd = line.type == DiffLineType.add;
 
-            if (line.type == DiffLineType.add) {
-              rowBg = isDark ? const Color(0x282EA44F) : const Color(0x2428A745);
-              textFg = isDark ? const Color(0xFF7EE787) : const Color(0xFF1E7E34);
-              symbol = '+';
-              symbolColor = textFg;
-            } else if (line.type == DiffLineType.delete) {
-              rowBg = isDark ? const Color(0x28CF222E) : const Color(0x24DC3545);
-              textFg = isDark ? const Color(0xFFF85149) : const Color(0xFFBD2130);
-              symbol = '-';
-              symbolColor = textFg;
+            Color? rowBg;
+            if (isDelete) {
+              rowBg = isDark ? const Color(0xFF5A1E1E) : const Color(0xFFFFDCE0);
+            } else if (isAdd) {
+              rowBg = isDark ? const Color(0xFF1E4620) : const Color(0xFFDCFFE4);
             }
 
+            // 单列行号：删除行左侧留空，新增行与普通行显示新行号
+            final lineNumStr = isDelete
+                ? ''
+                : (line.newLineNumber != null ? '${line.newLineNumber}' : '');
+
             return Container(
-              width: 820,
+              width: 880,
               color: rowBg ?? Colors.transparent,
-              padding: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(vertical: 2.5),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 旧行号
+                  // 单列行号区域
                   SizedBox(
-                    width: 44,
+                    width: 46,
                     child: Text(
-                      line.oldLineNumber != null ? '${line.oldLineNumber}' : '',
+                      lineNumStr,
                       textAlign: TextAlign.right,
                       style: TextStyle(
-                        fontFamily: 'Menlo, Courier, monospace',
-                        fontSize: 11,
-                        color: isDark ? const Color(0xFF6E7681) : const Color(0xFF8C959F),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // 新行号
-                  SizedBox(
-                    width: 44,
-                    child: Text(
-                      line.newLineNumber != null ? '${line.newLineNumber}' : '',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontFamily: 'Menlo, Courier, monospace',
-                        fontSize: 11,
-                        color: isDark ? const Color(0xFF6E7681) : const Color(0xFF8C959F),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // 变动标记符号列 (+ / -)
-                  SizedBox(
-                    width: 14,
-                    child: Text(
-                      symbol,
-                      style: TextStyle(
-                        fontFamily: 'Menlo, Courier, monospace',
+                        fontFamily: 'Menlo, Monaco, Courier, monospace',
                         fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: symbolColor,
+                        height: 1.4,
+                        color: lineNumberColor,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  // 代码文本正文
+                  const SizedBox(width: 14),
+                  // 代码文本正文：纯净代码，不带 + 或 - 前缀
                   Expanded(
                     child: Text(
                       line.text.isEmpty ? ' ' : line.text,
                       style: TextStyle(
-                        fontFamily: 'Menlo, Courier, monospace',
-                        fontSize: 12,
-                        height: 1.35,
-                        color: textFg,
+                        fontFamily: 'Menlo, Monaco, Courier, monospace',
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: textNormalColor,
                       ),
                     ),
                   ),
