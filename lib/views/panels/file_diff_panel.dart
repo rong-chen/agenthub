@@ -513,19 +513,6 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
                     '文件修改',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
-                  const Spacer(),
-                  if (widget.session?.isCodeMode == true && widget.session?.workDir != null) ...[
-                    Icon(Icons.folder_outlined, size: 13, color: AgentHubTheme.textTertiary),
-                    const SizedBox(width: 4),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 260),
-                      child: Text(
-                        widget.session!.workDir!,
-                        style: TextStyle(fontSize: 11, color: AgentHubTheme.textTertiary),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

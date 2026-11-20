@@ -10,7 +10,6 @@ import '../models/chat_session_model.dart';
 import '../models/tool_step_model.dart';
 import '../providers/app_state_provider.dart';
 import '../services/attachment_service.dart';
-import '../services/database_service.dart';
 import '../theme/agenthub_theme.dart';
 import 'components/tool_steps_card.dart';
 
@@ -141,93 +140,12 @@ class _ChatViewState extends State<ChatView> {
       color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: Column(
         children: [
-          _buildTopBar(provider),
           Expanded(
             child: messages.isEmpty
                 ? const SizedBox.shrink()
                 : _buildMessageList(provider, messages),
           ),
           _buildInputArea(provider),
-        ],
-      ),
-    );
-  }
-
-  /// 会话状态顶栏
-  Widget _buildTopBar(AppStateProvider provider) {
-    final activeSession = provider.sessions.cast<ChatSessionModel?>().firstWhere(
-      (s) => s?.id == provider.activeSessionId,
-      orElse: () => null,
-    );
-    if (activeSession == null) return const SizedBox.shrink();
-
-    final isCode = activeSession.isCodeMode;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(
-        color: AgentHubTheme.cardBackground,
-        border: Border(bottom: BorderSide(color: AgentHubTheme.divider)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: isCode ? AgentHubTheme.primaryRed : AgentHubTheme.border,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              isCode ? '代码模式 · Claude Code' : '聊天模式',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: isCode ? Colors.white : AgentHubTheme.textPrimary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              activeSession.title,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (isCode) ...[
-            Icon(Icons.folder_outlined, size: 14, color: AgentHubTheme.textTertiary),
-            const SizedBox(width: 4),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 240),
-              child: Text(
-                activeSession.workDir ?? '未指定目录',
-                style: TextStyle(fontSize: 11, color: AgentHubTheme.textTertiary),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 6),
-            InkWell(
-              onTap: () async {
-                String? selectedPath;
-                try {
-                  final uri = await FilePicker.pickDirectory(dialogTitle: '更改工作目录');
-                  selectedPath = uri?.toFilePath();
-                } catch (e) {
-                  debugPrint('更改目录失败: $e');
-                }
-                if (selectedPath != null && selectedPath.isNotEmpty) {
-                  var clean = selectedPath.trim();
-                  while ((clean.endsWith('/') || clean.endsWith(r'\')) && clean.length > 1) {
-                    clean = clean.substring(0, clean.length - 1);
-                  }
-                  activeSession.workDir = clean;
-                  await DatabaseService.instance.updateSession(activeSession);
-                  setState(() {});
-                }
-              },
-              child: Icon(Icons.edit_outlined, size: 14, color: AgentHubTheme.textSecondary),
-            ),
-          ],
         ],
       ),
     );
