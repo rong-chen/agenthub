@@ -54,10 +54,11 @@ class AttachmentService {
     );
   }
 
-  /// 拼接 prompt，将用户输入与附件路径合成为 Claude 命令参数
+  /// 拼接 prompt，将用户输入与附件路径合成为 Claude 命令参数（使用相对当前项目路径）
   String buildPromptWithAttachments({
     required String userText,
     required List<Attachment> attachments,
+    String? instanceWorkDir,
   }) {
     if (attachments.isEmpty) {
       return userText;
@@ -69,17 +70,25 @@ class AttachmentService {
     final images = attachments.where((a) => a.type == AttachmentType.image).toList();
     final files = attachments.where((a) => a.type != AttachmentType.image).toList();
 
+    String toRelative(String fullPath) {
+      if (instanceWorkDir != null && instanceWorkDir.isNotEmpty && fullPath.startsWith(instanceWorkDir)) {
+        final rel = p.relative(fullPath, from: instanceWorkDir);
+        return './$rel';
+      }
+      return fullPath;
+    }
+
     if (images.isNotEmpty) {
       buffer.writeln('\n附带图片文件:');
       for (int i = 0; i < images.length; i++) {
-        buffer.writeln('- 图片${i + 1}: ${images[i].stagedPath}');
+        buffer.writeln('- 图片${i + 1}: ${toRelative(images[i].stagedPath)}');
       }
     }
 
     if (files.isNotEmpty) {
       buffer.writeln('\n附带文本/源码文件:');
       for (int i = 0; i < files.length; i++) {
-        buffer.writeln('- 附件${i + 1}: ${files[i].stagedPath}');
+        buffer.writeln('- 附件${i + 1}: ${toRelative(files[i].stagedPath)}');
       }
     }
 

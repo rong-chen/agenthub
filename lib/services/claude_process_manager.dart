@@ -134,10 +134,11 @@ class ClaudeProcessManager {
     inst.currentTask = prompt;
     inst.appendLog('> 正在准备执行任务...');
 
-    // 拼接附件
+    // 拼接附件（保持在当前项目目录下的相对路径）
     final finalPrompt = _attachmentService.buildPromptWithAttachments(
       userText: prompt,
       attachments: attachments,
+      instanceWorkDir: inst.workDir,
     );
 
     // 组装命令行参数，必须包含 --verbose 与 stream-json，并跳过非交互模式下的权限拦截

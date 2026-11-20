@@ -67,6 +67,7 @@ class DatabaseService {
               status TEXT NOT NULL,
               created_at INTEGER NOT NULL,
               tool_steps TEXT,
+              thinkings TEXT,
               FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE
             )
           ''');
@@ -261,6 +262,9 @@ class DatabaseService {
     try {
       await db.execute('ALTER TABLE messages ADD COLUMN tool_steps TEXT;');
     } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE messages ADD COLUMN thinkings TEXT;');
+    } catch (_) {}
 
     try {
       await db.execute('''
@@ -340,6 +344,14 @@ class DatabaseService {
                 .toList();
           } catch (_) {}
         }
+        List<String> thinkings = [];
+        final rawThinkings = m['thinkings'] as String?;
+        if (rawThinkings != null && rawThinkings.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(rawThinkings) as List;
+            thinkings = decoded.map((e) => e.toString()).toList();
+          } catch (_) {}
+        }
         return ChatMessageModel(
           id: msgId,
           role: MessageRole.values.firstWhere(
@@ -355,6 +367,7 @@ class DatabaseService {
           checkpointId: ckpt?.id,
           checkpoint: ckpt,
           toolSteps: toolSteps,
+          thinkings: thinkings,
         );
       }).toList();
 
@@ -497,6 +510,9 @@ class DatabaseService {
         'created_at': message.timestamp.millisecondsSinceEpoch,
         'tool_steps': message.toolSteps.isNotEmpty
             ? jsonEncode(message.toolSteps.map((s) => s.toJson()).toList())
+            : null,
+        'thinkings': message.thinkings.isNotEmpty
+            ? jsonEncode(message.thinkings)
             : null,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,

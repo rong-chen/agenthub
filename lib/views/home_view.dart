@@ -17,6 +17,7 @@ import 'skills_view.dart';
 import 'settings_view.dart';
 import 'trash_view.dart';
 import 'panels/file_diff_panel.dart';
+import 'panels/file_preview_panel.dart';
 
 /// 主窗口布局，包含左侧边栏与主工作区
 class HomeView extends StatefulWidget {
@@ -67,7 +68,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           final totalWidth = constraints.maxWidth;
           final mainAreaWidth = !_isSidebarCollapsed ? (totalWidth - 221.0) : totalWidth;
 
-          final minRightWidth = 260.0;
+          final minRightWidth = 300.0;
           final minChatWidth = 360.0;
           final maxRightWidth = max(minRightWidth, mainAreaWidth - minChatWidth);
 
@@ -148,8 +149,16 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     );
   }
 
-  /// 构建右侧内容区域（长显，支持文件修改及后续扩展）
+  /// 构建右侧内容区域（长显，支持文件预览、文件修改及后续扩展）
   Widget _buildRightPanel(BuildContext context, AppStateProvider provider) {
+    if (provider.rightPanelType == RightPanelType.filePreview && provider.previewFilePath != null) {
+      return FilePreviewPanel(
+        filePath: provider.previewFilePath!,
+        content: provider.previewFileContent ?? '',
+        onClose: () => provider.closeFilePreview(),
+      );
+    }
+
     final activeSession = provider.activeSession;
     final ckpt = provider.currentDisplayCheckpoint;
 

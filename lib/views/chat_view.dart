@@ -303,9 +303,10 @@ class _ChatViewState extends State<ChatView> {
                           }).toList(),
                         ),
                       ],
-                      if (message.isThinking || (message.thinking != null && message.thinking!.isNotEmpty)) ...[
+                      if (message.isThinking || (message.thinking != null && message.thinking!.isNotEmpty) || message.thinkings.isNotEmpty) ...[
                         _ThinkingCard(
                           thinking: message.thinking,
+                          thinkings: message.thinkings,
                           isThinking: message.isThinking,
                         ),
                       ],
@@ -765,13 +766,15 @@ class _ChatViewState extends State<ChatView> {
   }
 }
 
-/// 可折叠的思考过程卡片
+/// 可折叠的思考过程卡片（支持多阶段思考完整展示，绝不覆盖）
 class _ThinkingCard extends StatefulWidget {
   final String? thinking;
+  final List<String> thinkings;
   final bool isThinking;
 
   const _ThinkingCard({
-    required this.thinking,
+    this.thinking,
+    this.thinkings = const [],
     required this.isThinking,
   });
 
@@ -784,7 +787,18 @@ class _ThinkingCardState extends State<_ThinkingCard> {
 
   @override
   Widget build(BuildContext context) {
-    final hasText = widget.thinking != null && widget.thinking!.trim().isNotEmpty;
+    final phases = widget.thinkings.isNotEmpty
+        ? widget.thinkings
+        : (widget.thinking != null && widget.thinking!.trim().isNotEmpty ? [widget.thinking!] : <String>[]);
+    final hasText = phases.isNotEmpty;
+    final phaseCount = phases.length;
+
+    String title;
+    if (widget.isThinking) {
+      title = phaseCount > 1 ? '深度思考中 (第 $phaseCount 阶段)...' : '深度思考中...';
+    } else {
+      title = phaseCount > 1 ? '已完成思考 ($phaseCount 个阶段)' : '已完成思考';
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -811,7 +825,7 @@ class _ThinkingCardState extends State<_ThinkingCard> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    widget.isThinking ? '深度思考中...' : '已完成思考',
+                    title,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -833,13 +847,40 @@ class _ThinkingCardState extends State<_ThinkingCard> {
           if (_expanded && hasText)
             Container(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-              child: SelectableText(
-                widget.thinking!,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.4,
-                  color: AgentHubTheme.textTertiary,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < phases.length; i++) ...[
+                    if (phases.length > 1) ...[
+                      if (i > 0)
+                        Divider(height: 14, thickness: 1, color: AgentHubTheme.border),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        margin: const EdgeInsets.only(bottom: 4),
+                        decoration: BoxDecoration(
+                          color: AgentHubTheme.pillBackground,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '阶段 ${i + 1}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AgentHubTheme.primaryRed,
+                          ),
+                        ),
+                      ),
+                    ],
+                    SelectableText(
+                      phases[i],
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.4,
+                        color: AgentHubTheme.textTertiary,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
         ],

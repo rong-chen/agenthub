@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:window_manager/window_manager.dart';
 import '../models/attachment.dart';
 import '../models/checkpoint_model.dart';
@@ -30,6 +31,7 @@ import '../theme/agenthub_theme.dart';
 enum RightPanelType {
   none,
   fileDiff,
+  filePreview,
 }
 
 /// 全局应用状态管理
@@ -64,11 +66,65 @@ class AppStateProvider extends ChangeNotifier {
   CheckpointModel? _activeCheckpoint;
   ChatMessageModel? _activeDiffMessage;
   String? _pendingInputPrompt;
+  String? _previewFilePath;
+  String? _previewFileContent;
 
   RightPanelType get rightPanelType => _rightPanelType;
   CheckpointModel? get activeCheckpoint => _activeCheckpoint;
   ChatMessageModel? get activeDiffMessage => _activeDiffMessage;
   String? get pendingInputPrompt => _pendingInputPrompt;
+  String? get previewFilePath => _previewFilePath;
+  String? get previewFileContent => _previewFileContent;
+
+  /// 在右侧面板中打开或预览指定文件
+  Future<void> openFileInRightPanel(String filePathOrTarget) async {
+    final session = activeSession;
+    final workDir = session?.workDir ?? Directory.current.path;
+
+    String cleanPath = filePathOrTarget.trim();
+    if (cleanPath.startsWith('./')) cleanPath = cleanPath.substring(2);
+
+    // 1. 如果当前 Checkpoint 中包含该文件，定位到该文件 Diff
+    final ckpt = currentDisplayCheckpoint;
+    if (ckpt != null && ckpt.changedFiles.any((f) => f.contains(cleanPath) || cleanPath.contains(f))) {
+      _activeCheckpoint = ckpt;
+      _rightPanelType = RightPanelType.fileDiff;
+      notifyListeners();
+      return;
+    }
+
+    // 2. 如果磁盘存在物理文件，读取并直接在右侧面板展示该文件内容
+    File targetFile = File(cleanPath);
+    if (!targetFile.isAbsolute) {
+      targetFile = File(p.join(workDir, cleanPath));
+    }
+
+    if (targetFile.existsSync()) {
+      try {
+        final content = await targetFile.readAsString();
+        _previewFilePath = ToolStepModel.formatDisplayPath(targetFile.path, workDir);
+        _previewFileContent = content;
+        _rightPanelType = RightPanelType.filePreview;
+        notifyListeners();
+        return;
+      } catch (_) {}
+    }
+
+    // 3. 兜底保持 Diff 模式
+    if (ckpt != null) {
+      _activeCheckpoint = ckpt;
+      _rightPanelType = RightPanelType.fileDiff;
+      notifyListeners();
+    }
+  }
+
+  /// 关闭文件预览，返回文件修改 Diff 面板
+  void closeFilePreview() {
+    _previewFilePath = null;
+    _previewFileContent = null;
+    _rightPanelType = RightPanelType.fileDiff;
+    notifyListeners();
+  }
 
   /// 消费并清空回填提示词
   String? consumePendingInputPrompt() {
@@ -796,26 +852,45 @@ class AppStateProvider extends ChangeNotifier {
           attachments: attachments,
         );
 
+        bool inThinkingPhase = false;
+
         await for (final event in stream) {
           if (_abortedSessionIds.contains(currentSessionId)) {
             assistantMessage.isThinking = false;
             break;
           }
 
-          if (event.isThinking) {
+          // 1. 多阶段思考过程处理（按轮次独立追加，绝不覆盖历史阶段）
+          if (event.isThinking || (event.thinking != null && event.thinking!.isNotEmpty) || event.thinkings.isNotEmpty) {
             assistantMessage.isThinking = true;
-            if (event.thinking != null && event.thinking!.isNotEmpty) {
-              assistantMessage.thinking = (assistantMessage.thinking ?? '') + event.thinking!;
+            final incomingChunks = event.thinkings.isNotEmpty
+                ? event.thinkings
+                : (event.thinking != null && event.thinking!.isNotEmpty ? [event.thinking!] : <String>[]);
+
+            for (final chunk in incomingChunks) {
+              if (chunk.trim().isEmpty || chunk == '...') continue;
+              if (!inThinkingPhase || assistantMessage.thinkings.isEmpty) {
+                // 开启新思考阶段
+                assistantMessage.thinkings.add(chunk);
+                inThinkingPhase = true;
+              } else {
+                // 累加到当前思考阶段末尾
+                final lastIdx = assistantMessage.thinkings.length - 1;
+                assistantMessage.thinkings[lastIdx] += chunk;
+              }
             }
+            assistantMessage.thinking = assistantMessage.thinkings.join('\n\n---\n\n');
           }
 
           // 2. 工具调用步骤收集（全量捕获流式抛出的每一个工具与命令）
           if (event.toolSteps.isNotEmpty) {
+            inThinkingPhase = false;
             assistantMessage.isThinking = false;
             assistantMessage.toolSteps.addAll(event.toolSteps);
             assistantMessage.toolName = event.toolSteps.last.toolName;
             assistantMessage.toolInput = event.toolSteps.last.input;
           } else if (event.toolName != null && event.toolName!.isNotEmpty) {
+            inThinkingPhase = false;
             assistantMessage.isThinking = false;
             assistantMessage.toolName = event.toolName;
             assistantMessage.toolInput = event.toolInput;
@@ -828,6 +903,7 @@ class AppStateProvider extends ChangeNotifier {
 
           // 3. 工具执行结果回填
           if (event.toolOutput != null || event.type == 'tool_result') {
+            inThinkingPhase = false;
             assistantMessage.toolOutput = event.toolOutput;
             if (assistantMessage.toolSteps.isNotEmpty) {
               final runningSteps = assistantMessage.toolSteps.where((s) => s.status == ToolStepStatus.running).toList();
@@ -843,6 +919,7 @@ class AppStateProvider extends ChangeNotifier {
 
           // 4. 文本输出流式累加
           if (event.content != null && event.content!.isNotEmpty && event.type != 'error') {
+            inThinkingPhase = false;
             assistantMessage.isThinking = false;
             final incoming = event.content!;
             if (assistantMessage.content.isEmpty) {

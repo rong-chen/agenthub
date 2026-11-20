@@ -14,6 +14,7 @@ class ClaudeStreamEvent {
   final double? costUsd;
   final int? durationMs;
   final List<ToolStepModel> toolSteps;
+  final List<String> thinkings;
 
   const ClaudeStreamEvent({
     required this.type,
@@ -27,6 +28,7 @@ class ClaudeStreamEvent {
     this.costUsd,
     this.durationMs,
     this.toolSteps = const [],
+    this.thinkings = const [],
   });
 
   /// 从 Claude stream-json 行解析事件
@@ -44,6 +46,7 @@ class ClaudeStreamEvent {
     String? thinking;
     bool isThinking = false;
     final List<ToolStepModel> toolSteps = [];
+    final List<String> thinkings = [];
 
     if (subtype == 'thinking_tokens') {
       isThinking = true;
@@ -64,6 +67,7 @@ class ClaudeStreamEvent {
               final t = item['thinking']?.toString();
               if (t != null && t.isNotEmpty && t != '...') {
                 thinking = t;
+                thinkings.add(t);
               }
             } else if (partType == 'tool_use') {
               final tName = item['name']?.toString() ?? '';
@@ -131,6 +135,7 @@ class ClaudeStreamEvent {
       costUsd: costUsd,
       durationMs: durationMs,
       toolSteps: toolSteps,
+      thinkings: thinkings,
     );
   }
 }

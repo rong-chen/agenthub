@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 /// 工具调用步骤执行状态
 enum ToolStepStatus {
@@ -13,6 +14,7 @@ class ToolStepModel {
   final String toolName;
   final String actionLabel;
   final String target;
+  final String? fullPath;
   final String? input;
   String? output;
   ToolStepStatus status;
@@ -26,6 +28,7 @@ class ToolStepModel {
     required this.toolName,
     required this.actionLabel,
     required this.target,
+    this.fullPath,
     this.input,
     this.output,
     this.status = ToolStepStatus.running,
@@ -42,13 +45,15 @@ class ToolStepModel {
     String? input,
     String? output,
     ToolStepStatus status = ToolStepStatus.running,
+    String? workDir,
   }) {
-    final parsed = parseToolMeta(toolName, input);
+    final parsed = parseToolMeta(toolName, input, workDir);
     return ToolStepModel(
       id: 'step_${DateTime.now().microsecondsSinceEpoch}',
       toolName: toolName,
       actionLabel: parsed.actionLabel,
       target: parsed.target,
+      fullPath: parsed.fullPath,
       input: input,
       output: output,
       status: status,
@@ -56,9 +61,14 @@ class ToolStepModel {
   }
 
   /// 智能解析工具类别和目标参数
-  static ({String actionLabel, String target}) parseToolMeta(String toolName, String? input) {
+  static ({String actionLabel, String target, String? fullPath}) parseToolMeta(
+    String toolName,
+    String? input, [
+    String? workDir,
+  ]) {
     String actionLabel = '执行工具';
     String target = '';
+    String? fullPath;
 
     Map<String, dynamic> params = {};
     if (input != null && input.trim().isNotEmpty) {
@@ -77,13 +87,16 @@ class ToolStepModel {
       target = _formatCommandTarget(cmd);
     } else if (lower.contains('read') || lower.contains('cat') || lower == 'view') {
       actionLabel = '读取文件';
-      target = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
+      fullPath = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
+      target = formatDisplayPath(fullPath, workDir);
     } else if (lower.contains('write') || lower.contains('create')) {
       actionLabel = '创建文件';
-      target = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
+      fullPath = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
+      target = formatDisplayPath(fullPath, workDir);
     } else if (lower.contains('edit') || lower.contains('patch') || lower.contains('replace') || lower == 'str_replace') {
       actionLabel = '编辑文件';
-      target = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
+      fullPath = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
+      target = formatDisplayPath(fullPath, workDir);
     } else if (lower.contains('glob') || lower.contains('find') || lower.contains('search_file')) {
       actionLabel = '查找文件';
       target = params['pattern']?.toString() ?? params['query']?.toString() ?? input ?? '';
@@ -99,7 +112,40 @@ class ToolStepModel {
       target = '${target.substring(0, 57)}...';
     }
 
-    return (actionLabel: actionLabel, target: target);
+    return (actionLabel: actionLabel, target: target, fullPath: fullPath);
+  }
+
+  /// 格式化文件展示路径，统一转换为 ./相对路径 或文件名，杜绝冗长的全局绝对路径
+  static String formatDisplayPath(String rawPath, [String? workDir]) {
+    var pStr = rawPath.trim();
+    if ((pStr.startsWith('"') && pStr.endsWith('"')) || (pStr.startsWith("'") && pStr.endsWith("'"))) {
+      pStr = pStr.substring(1, pStr.length - 1).trim();
+    }
+    if (pStr.isEmpty) return '';
+
+    // 如果已经是相对路径
+    if (pStr.startsWith('./')) return pStr;
+
+    final currentDir = workDir ?? Directory.current.path;
+    if (pStr.startsWith(currentDir)) {
+      pStr = pStr.substring(currentDir.length);
+      if (pStr.startsWith('/') || pStr.startsWith('\\')) {
+        pStr = pStr.substring(1);
+      }
+      return './$pStr';
+    }
+
+    // 绝对路径根据最后层级简写为 ./相对路径
+    if (pStr.startsWith('/')) {
+      final parts = pStr.split(RegExp(r'[/\\]')).where((s) => s.isNotEmpty).toList();
+      if (parts.length > 2) {
+        return './${parts.sublist(parts.length - 2).join('/')}';
+      } else if (parts.isNotEmpty) {
+        return './${parts.last}';
+      }
+    }
+
+    return './$pStr';
   }
 
   /// 格式化命令目标描述
@@ -123,6 +169,7 @@ class ToolStepModel {
         'toolName': toolName,
         'actionLabel': actionLabel,
         'target': target,
+        'fullPath': fullPath,
         'input': input,
         'output': output,
         'status': status.name,
@@ -138,6 +185,7 @@ class ToolStepModel {
       toolName: json['toolName']?.toString() ?? '',
       actionLabel: json['actionLabel']?.toString() ?? '',
       target: json['target']?.toString() ?? '',
+      fullPath: json['fullPath']?.toString(),
       input: json['input']?.toString(),
       output: json['output']?.toString(),
       status: ToolStepStatus.values.firstWhere(

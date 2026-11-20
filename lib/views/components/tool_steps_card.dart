@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/tool_step_model.dart';
+import '../../providers/app_state_provider.dart';
 import '../../theme/agenthub_theme.dart';
 
 /// 工具调用步骤卡片组组件（忠实还原 Agent 执行步骤列表外观）
@@ -82,16 +84,22 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
                   ),
                   const SizedBox(width: 8),
                   if (isFileAction && step.target.isNotEmpty) ...[
-                    _buildFileChip(step.target),
+                    Flexible(child: _buildFileChip(context, step.target)),
                   ] else if (step.target.isNotEmpty) ...[
                     Expanded(
-                      child: Text(
-                        step.target,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AgentHubTheme.textSecondary,
+                      child: InkWell(
+                        onTap: () {
+                          context.read<AppStateProvider>().openFileInRightPanel(step.target);
+                        },
+                        borderRadius: BorderRadius.circular(4),
+                        child: Text(
+                          step.target,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AgentHubTheme.textSecondary,
+                          ),
                         ),
                       ),
                     ),
@@ -228,54 +236,61 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
                 Column(
                   children: subSteps.map((child) {
                     final isPy = child.target.endsWith('.py');
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 14),
-                          // 子节点图标或圆点
-                          if (isPy) ...[
-                            Container(
-                              width: 16,
-                              height: 16,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF3572A5).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(3),
+                    return InkWell(
+                      onTap: () {
+                        final target = child.target.isNotEmpty ? child.target : child.actionLabel;
+                        context.read<AppStateProvider>().openFileInRightPanel(target);
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 10),
+                            // 子节点图标或圆点
+                            if (isPy) ...[
+                              Container(
+                                width: 16,
+                                height: 16,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF3572A5).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: const Text(
+                                  'Py',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF3572A5),
+                                  ),
+                                ),
                               ),
-                              child: const Text(
-                                'Py',
+                            ] else ...[
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF666666) : const Color(0xFF999999),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                child.target.isNotEmpty ? child.target : child.actionLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF3572A5),
+                                  fontSize: 12.5,
+                                  color: AgentHubTheme.textPrimary,
                                 ),
                               ),
                             ),
-                          ] else ...[
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF666666) : const Color(0xFF999999),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
+                            _buildStatusDot(child.status),
                           ],
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              child.target.isNotEmpty ? child.target : child.actionLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: AgentHubTheme.textPrimary,
-                              ),
-                            ),
-                          ),
-                          _buildStatusDot(child.status),
-                        ],
+                        ),
                       ),
                     );
                   }).toList(),
@@ -322,28 +337,38 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
     );
   }
 
-  /// 文件徽章芯片
-  Widget _buildFileChip(String fileName) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0969DA).withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.info_outline, size: 11, color: Color(0xFF0969DA)),
-          const SizedBox(width: 4),
-          Text(
-            fileName,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0969DA),
+  /// 文件徽章芯片（点击可唤起右侧面板打开预览）
+  Widget _buildFileChip(BuildContext context, String fileName) {
+    return InkWell(
+      onTap: () {
+        context.read<AppStateProvider>().openFileInRightPanel(fileName);
+      },
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0969DA).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.info_outline, size: 11, color: Color(0xFF0969DA)),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                fileName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0969DA),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
