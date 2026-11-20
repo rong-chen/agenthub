@@ -492,6 +492,12 @@ class DatabaseService {
     );
   }
 
+  /// 删除指定单条消息
+  Future<void> deleteMessage(String messageId) async {
+    final db = await database;
+    await db.delete('messages', where: 'id = ?', whereArgs: [messageId]);
+  }
+
   /// 清空指定会话的消息
   Future<void> clearSessionMessages(String sessionId) async {
     final db = await database;

@@ -62,10 +62,19 @@ class AppStateProvider extends ChangeNotifier {
   RightPanelType _rightPanelType = RightPanelType.fileDiff;
   CheckpointModel? _activeCheckpoint;
   ChatMessageModel? _activeDiffMessage;
+  String? _pendingInputPrompt;
 
   RightPanelType get rightPanelType => _rightPanelType;
   CheckpointModel? get activeCheckpoint => _activeCheckpoint;
   ChatMessageModel? get activeDiffMessage => _activeDiffMessage;
+  String? get pendingInputPrompt => _pendingInputPrompt;
+
+  /// 消费并清空回填提示词
+  String? consumePendingInputPrompt() {
+    final prompt = _pendingInputPrompt;
+    _pendingInputPrompt = null;
+    return prompt;
+  }
 
   /// 获取当前右侧应展示的 Checkpoint（优先选中的，否则取当前会话最新的一条）
   CheckpointModel? get currentDisplayCheckpoint {
@@ -1173,38 +1182,62 @@ class AppStateProvider extends ChangeNotifier {
   }
 
   /// 回滚指定消息所关联的 Checkpoint 文件改动
-  Future<bool> rollbackMessageCheckpoint(ChatMessageModel message) async {
+  /// 回滚指定消息所关联的文件改动，删除对应上下文，并返回用户输入内容以回填输入框
+  Future<String?> rollbackMessageCheckpoint(ChatMessageModel message) async {
     CheckpointModel? ckpt = message.checkpoint;
     if (ckpt == null && message.checkpointId != null) {
       ckpt = await _dbService.getCheckpointByMessageId(message.id);
     }
-    if (ckpt == null || ckpt.isRolledBack) {
-      return false;
+    if (ckpt == null) {
+      return null;
     }
 
     final ok = await _checkpointService.rollback(ckpt);
-    if (ok) {
-      message.checkpoint = ckpt;
-      message.checkpointId = ckpt.id;
+    if (!ok) return null;
 
-      final rollbackMsg = ChatMessageModel(
-        id: '${DateTime.now().millisecondsSinceEpoch}_rollback',
-        role: MessageRole.system,
-        content: '已成功回退本次改动，涉及文件已安全恢复至任务前版本。',
-        timestamp: DateTime.now(),
-        status: MessageStatus.done,
-      );
-      final session = _sessions.cast<ChatSessionModel?>().firstWhere(
-        (s) => s?.id == ckpt!.sessionId,
-        orElse: () => null,
-      );
-      if (session != null) {
-        session.messages.add(rollbackMsg);
-        await _dbService.saveMessage(session.id, rollbackMsg);
+    final session = _sessions.cast<ChatSessionModel?>().firstWhere(
+      (s) => s?.id == ckpt!.sessionId,
+      orElse: () => null,
+    );
+
+    String? revertedPrompt;
+
+    if (session != null) {
+      final assistantIndex = session.messages.indexWhere((m) => m.id == message.id);
+      if (assistantIndex != -1) {
+        int userIndex = -1;
+        for (int i = assistantIndex - 1; i >= 0; i--) {
+          if (session.messages[i].role == MessageRole.user) {
+            userIndex = i;
+            break;
+          }
+        }
+
+        final msgsToDelete = <ChatMessageModel>[];
+        if (userIndex != -1) {
+          revertedPrompt = session.messages[userIndex].content;
+          for (int i = userIndex; i <= assistantIndex; i++) {
+            msgsToDelete.add(session.messages[i]);
+          }
+        } else {
+          msgsToDelete.add(session.messages[assistantIndex]);
+        }
+
+        for (final m in msgsToDelete) {
+          session.messages.remove(m);
+          await _dbService.deleteMessage(m.id);
+        }
       }
+
+      if (_activeCheckpoint?.id == ckpt.id) {
+        _activeCheckpoint = null;
+        _activeDiffMessage = null;
+      }
+      _pendingInputPrompt = revertedPrompt;
       notifyListeners();
     }
-    return ok;
+
+    return revertedPrompt;
   }
 
   /// 解析并自动注册 AI 输出中的定时任务指令块

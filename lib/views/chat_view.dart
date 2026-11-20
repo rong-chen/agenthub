@@ -124,6 +124,17 @@ class _ChatViewState extends State<ChatView> {
       _scrollToBottom(animate: true);
     }
 
+    if (provider.pendingInputPrompt != null) {
+      final prompt = provider.consumePendingInputPrompt();
+      if (prompt != null && prompt.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _inputController.text = prompt;
+          _inputController.selection = TextSelection.collapsed(offset: prompt.length);
+          _inputFocusNode.requestFocus();
+        });
+      }
+    }
+
     return Container(
       color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: Column(
@@ -653,7 +664,12 @@ class _ChatViewState extends State<ChatView> {
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
-              await provider.rollbackMessageCheckpoint(message);
+              final revertedPrompt = await provider.rollbackMessageCheckpoint(message);
+              if (revertedPrompt != null && revertedPrompt.trim().isNotEmpty) {
+                _inputController.text = revertedPrompt;
+                _inputController.selection = TextSelection.collapsed(offset: revertedPrompt.length);
+                _inputFocusNode.requestFocus();
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AgentHubTheme.primaryRed,

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -27,6 +28,8 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> with WindowListener {
   bool _isSidebarCollapsed = false;
+  double? _rightPanelWidth;
+  bool _isDraggingDivider = false;
 
   @override
   void initState() {
@@ -53,51 +56,94 @@ class _HomeViewState extends State<HomeView> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
-    // 强制同步当前主题模式，防止静态变量未即时更新
     AgentHubTheme.isDark = provider.isDarkTheme;
 
     final isChatTab = provider.currentTabIndex == 0;
 
     return Scaffold(
       backgroundColor: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
-      body: Row(
-        children: [
-          // 第一栏：左侧菜单栏
-          if (!_isSidebarCollapsed) ...[
-            _buildSidebar(context, provider),
-            VerticalDivider(width: 1, thickness: 1, color: AgentHubTheme.divider),
-          ],
-          // 第二栏：中间会话/主工作区
-          Expanded(
-            flex: isChatTab ? 5 : 10,
-            child: Column(
-              children: [
-                _buildTopBar(context, provider),
-                Divider(height: 1, thickness: 1, color: AgentHubTheme.divider),
-                Expanded(
-                  child: IndexedStack(
-                    index: provider.currentTabIndex,
-                    children: const [
-                      ChatView(),
-                      ClaudeManagerView(),
-                      TasksView(),
-                      SkillsView(),
-                      SettingsView(),
-                    ],
-                  ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          final mainAreaWidth = !_isSidebarCollapsed ? (totalWidth - 221.0) : totalWidth;
+
+          final minRightWidth = 320.0;
+          final minChatWidth = 360.0;
+          final maxRightWidth = max(minRightWidth, mainAreaWidth - minChatWidth);
+
+          if (_rightPanelWidth == null) {
+            _rightPanelWidth = (mainAreaWidth * 0.55).clamp(minRightWidth, maxRightWidth);
+          } else {
+            _rightPanelWidth = _rightPanelWidth!.clamp(minRightWidth, maxRightWidth);
+          }
+
+          return Row(
+            children: [
+              // 第一栏：左侧菜单栏
+              if (!_isSidebarCollapsed) ...[
+                _buildSidebar(context, provider),
+                VerticalDivider(width: 1, thickness: 1, color: AgentHubTheme.divider),
+              ],
+              // 第二栏：中间会话/主工作区
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildTopBar(context, provider),
+                    Divider(height: 1, thickness: 1, color: AgentHubTheme.divider),
+                    Expanded(
+                      child: IndexedStack(
+                        index: provider.currentTabIndex,
+                        children: const [
+                          ChatView(),
+                          ClaudeManagerView(),
+                          TasksView(),
+                          SkillsView(),
+                          SettingsView(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 中间与右侧拖拽调节手柄及第三栏
+              if (isChatTab) ...[
+                _buildDraggableDivider(minRightWidth, maxRightWidth),
+                SizedBox(
+                  width: _rightPanelWidth,
+                  child: _buildRightPanel(context, provider),
                 ),
               ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// 构建可左右拖动调整宽度的分栏分隔条
+  Widget _buildDraggableDivider(double minWidth, double maxWidth) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (_) => setState(() => _isDraggingDivider = true),
+        onHorizontalDragUpdate: (details) {
+          setState(() {
+            _rightPanelWidth = (_rightPanelWidth! - details.delta.dx).clamp(minWidth, maxWidth);
+          });
+        },
+        onHorizontalDragEnd: (_) => setState(() => _isDraggingDivider = false),
+        child: Container(
+          width: 7,
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              width: _isDraggingDivider ? 2 : 1,
+              height: double.infinity,
+              color: _isDraggingDivider ? AgentHubTheme.primaryRed : AgentHubTheme.divider,
             ),
           ),
-          // 第三栏：右侧内容区域（长显，默认文件修改区域）
-          if (isChatTab) ...[
-            VerticalDivider(width: 1, thickness: 1, color: AgentHubTheme.divider),
-            Expanded(
-              flex: 6,
-              child: _buildRightPanel(context, provider),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
