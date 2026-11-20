@@ -16,6 +16,7 @@ class ClaudeProcessInstance {
   String profileId;
   String workDir;
   String? sessionId;
+  String? claudeResumeUuid;
   ClaudeProcessStatus status;
   String? currentTask;
   DateTime startedAt;

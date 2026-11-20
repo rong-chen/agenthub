@@ -33,7 +33,7 @@ class ClaudeStreamEvent {
 
   /// 从 Claude stream-json 行解析事件
   factory ClaudeStreamEvent.fromJson(Map<String, dynamic> json) {
-    final type = json['type']?.toString() ?? '';
+    var type = json['type']?.toString() ?? '';
     final subtype = json['subtype']?.toString() ?? '';
     final sessionId = json['session_id']?.toString();
     final costUsd = (json['total_cost_usd'] as num?)?.toDouble() ?? (json['cost_usd'] as num?)?.toDouble();
@@ -47,6 +47,14 @@ class ClaudeStreamEvent {
     bool isThinking = false;
     final List<ToolStepModel> toolSteps = [];
     final List<String> thinkings = [];
+
+    if (json['is_error'] == true || json['errors'] is List) {
+      type = 'error';
+      final errList = json['errors'] as List?;
+      if (errList != null && errList.isNotEmpty) {
+        content = errList.map((e) => e.toString()).join('\n');
+      }
+    }
 
     if (subtype == 'thinking_tokens') {
       isThinking = true;

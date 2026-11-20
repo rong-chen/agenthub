@@ -150,8 +150,10 @@ class ClaudeProcessManager {
       '--dangerously-skip-permissions',
     ];
 
-    if (inst.sessionId != null && inst.sessionId!.isNotEmpty) {
-      args.addAll(['--resume', inst.sessionId!]);
+    final uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+    final resumeTarget = inst.claudeResumeUuid;
+    if (resumeTarget != null && uuidRegex.hasMatch(resumeTarget)) {
+      args.addAll(['--resume', resumeTarget]);
     }
 
     if (profile.defaultFallbackModel.isNotEmpty) {
@@ -197,8 +199,8 @@ class ClaudeProcessManager {
         final json = jsonDecode(trimmed);
         if (json is Map<String, dynamic>) {
           final event = ClaudeStreamEvent.fromJson(json);
-          if (event.sessionId != null && event.sessionId!.isNotEmpty) {
-            inst.sessionId = event.sessionId;
+          if (event.sessionId != null && uuidRegex.hasMatch(event.sessionId!)) {
+            inst.claudeResumeUuid = event.sessionId;
           }
           if (event.content != null && event.content!.isNotEmpty) {
             hasReceivedContent = true;
