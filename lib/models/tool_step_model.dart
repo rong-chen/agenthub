@@ -71,17 +71,17 @@ class ToolStepModel {
     }
 
     final lower = toolName.toLowerCase();
-    if (lower.contains('bash') || lower.contains('cmd') || lower.contains('exec') || lower.contains('command')) {
+    if (lower.contains('bash') || lower.contains('cmd') || lower.contains('exec') || lower.contains('command') || lower == 'ls') {
       actionLabel = '运行命令';
       final cmd = params['command']?.toString() ?? input ?? '';
       target = _formatCommandTarget(cmd);
-    } else if (lower.contains('read') || lower.contains('cat')) {
+    } else if (lower.contains('read') || lower.contains('cat') || lower == 'view') {
       actionLabel = '读取文件';
       target = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
     } else if (lower.contains('write') || lower.contains('create')) {
       actionLabel = '创建文件';
       target = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
-    } else if (lower.contains('edit') || lower.contains('patch') || lower.contains('replace')) {
+    } else if (lower.contains('edit') || lower.contains('patch') || lower.contains('replace') || lower == 'str_replace') {
       actionLabel = '编辑文件';
       target = params['file_path']?.toString() ?? params['path']?.toString() ?? input ?? '';
     } else if (lower.contains('glob') || lower.contains('find') || lower.contains('search_file')) {

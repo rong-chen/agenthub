@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'tool_step_model.dart';
 
 /// Claude Code stream-json 模式抛出的事件模型
 class ClaudeStreamEvent {
@@ -12,6 +13,7 @@ class ClaudeStreamEvent {
   final bool isThinking;
   final double? costUsd;
   final int? durationMs;
+  final List<ToolStepModel> toolSteps;
 
   const ClaudeStreamEvent({
     required this.type,
@@ -24,6 +26,7 @@ class ClaudeStreamEvent {
     this.isThinking = false,
     this.costUsd,
     this.durationMs,
+    this.toolSteps = const [],
   });
 
   /// 从 Claude stream-json 行解析事件
@@ -40,6 +43,7 @@ class ClaudeStreamEvent {
     String? toolOutput;
     String? thinking;
     bool isThinking = false;
+    final List<ToolStepModel> toolSteps = [];
 
     if (subtype == 'thinking_tokens') {
       isThinking = true;
@@ -62,8 +66,17 @@ class ClaudeStreamEvent {
                 thinking = t;
               }
             } else if (partType == 'tool_use') {
-              toolName = item['name']?.toString();
-              toolInput = item['input'] != null ? jsonEncode(item['input']) : null;
+              final tName = item['name']?.toString() ?? '';
+              final tInput = item['input'] != null ? jsonEncode(item['input']) : null;
+              toolName = tName;
+              toolInput = tInput;
+              if (tName.isNotEmpty) {
+                toolSteps.add(ToolStepModel.fromRaw(
+                  toolName: tName,
+                  input: tInput,
+                  status: ToolStepStatus.running,
+                ));
+              }
             }
           }
         }
@@ -88,6 +101,13 @@ class ClaudeStreamEvent {
     } else if (type == 'tool_use') {
       toolName = json['name']?.toString() ?? json['tool_name']?.toString();
       toolInput = json['input'] != null ? jsonEncode(json['input']) : null;
+      if (toolName != null && toolName.isNotEmpty) {
+        toolSteps.add(ToolStepModel.fromRaw(
+          toolName: toolName,
+          input: toolInput,
+          status: ToolStepStatus.running,
+        ));
+      }
     } else if (type == 'tool_result') {
       toolOutput = json['output']?.toString() ?? json['content']?.toString();
     } else if (type == 'error') {
@@ -96,7 +116,7 @@ class ClaudeStreamEvent {
 
     if (toolOutput == null && json['tool_use_result'] is Map) {
       final res = json['tool_use_result'] as Map;
-      toolOutput = res['stdout']?.toString();
+      toolOutput = res['stdout']?.toString() ?? res['content']?.toString();
     }
 
     return ClaudeStreamEvent(
@@ -110,6 +130,7 @@ class ClaudeStreamEvent {
       isThinking: isThinking,
       costUsd: costUsd,
       durationMs: durationMs,
+      toolSteps: toolSteps,
     );
   }
 }

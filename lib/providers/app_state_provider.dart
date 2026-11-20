@@ -809,35 +809,25 @@ class AppStateProvider extends ChangeNotifier {
             }
           }
 
-          if (event.type == 'assistant' && event.content != null && event.content!.isNotEmpty) {
+          // 2. 工具调用步骤收集（全量捕获流式抛出的每一个工具与命令）
+          if (event.toolSteps.isNotEmpty) {
             assistantMessage.isThinking = false;
-            final incoming = event.content!;
-            if (assistantMessage.content.isEmpty) {
-              assistantMessage.content = incoming;
-            } else if (!assistantMessage.content.contains(incoming)) {
-              assistantMessage.content = '${assistantMessage.content}\n\n$incoming';
-            }
-          } else if (event.type == 'result' && event.content != null && event.content!.isNotEmpty) {
-            assistantMessage.isThinking = false;
-            final incoming = event.content!;
-            if (assistantMessage.content.isEmpty) {
-              assistantMessage.content = incoming;
-            } else if (!assistantMessage.content.contains(incoming) && !incoming.contains(assistantMessage.content)) {
-              assistantMessage.content = '${assistantMessage.content}\n\n$incoming';
-            }
-          } else if (event.type == 'tool_use') {
+            assistantMessage.toolSteps.addAll(event.toolSteps);
+            assistantMessage.toolName = event.toolSteps.last.toolName;
+            assistantMessage.toolInput = event.toolSteps.last.input;
+          } else if (event.toolName != null && event.toolName!.isNotEmpty) {
             assistantMessage.isThinking = false;
             assistantMessage.toolName = event.toolName;
             assistantMessage.toolInput = event.toolInput;
-            if (event.toolName != null && event.toolName!.isNotEmpty) {
-              final step = ToolStepModel.fromRaw(
-                toolName: event.toolName!,
-                input: event.toolInput,
-                status: ToolStepStatus.running,
-              );
-              assistantMessage.toolSteps.add(step);
-            }
-          } else if (event.type == 'tool_result' || event.toolOutput != null) {
+            assistantMessage.toolSteps.add(ToolStepModel.fromRaw(
+              toolName: event.toolName!,
+              input: event.toolInput,
+              status: ToolStepStatus.running,
+            ));
+          }
+
+          // 3. 工具执行结果回填
+          if (event.toolOutput != null || event.type == 'tool_result') {
             assistantMessage.toolOutput = event.toolOutput;
             if (assistantMessage.toolSteps.isNotEmpty) {
               final runningSteps = assistantMessage.toolSteps.where((s) => s.status == ToolStepStatus.running).toList();
@@ -848,6 +838,17 @@ class AppStateProvider extends ChangeNotifier {
                     ? ToolStepStatus.error
                     : ToolStepStatus.success;
               }
+            }
+          }
+
+          // 4. 文本输出流式累加
+          if (event.content != null && event.content!.isNotEmpty && event.type != 'error') {
+            assistantMessage.isThinking = false;
+            final incoming = event.content!;
+            if (assistantMessage.content.isEmpty) {
+              assistantMessage.content = incoming;
+            } else if (!assistantMessage.content.contains(incoming) && !incoming.contains(assistantMessage.content)) {
+              assistantMessage.content = '${assistantMessage.content}\n\n$incoming';
             }
           } else if (event.type == 'error') {
             assistantMessage.isThinking = false;
