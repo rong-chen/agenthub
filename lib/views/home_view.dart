@@ -688,41 +688,43 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             ),
           ),
           const Spacer(),
-          // 微信通道快捷入口
-          InkWell(
-            onTap: () => _showWechatChannelDialog(context, provider),
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              decoration: BoxDecoration(
-                color: AgentHubTheme.cardBackground,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AgentHubTheme.border),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.forum_outlined,
-                    size: 15,
-                    color: provider.wechatService.isRunning
-                        ? const Color(0xFF07C160)
-                        : AgentHubTheme.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    provider.wechatService.isRunning ? '微信在线' : '微信通道',
-                    style: TextStyle(
-                      fontSize: 11,
+          // 仅在微信渠道会话中显示微信在线状态
+          if (provider.activeSession?.channel == 'wechat') ...[
+            InkWell(
+              onTap: () => _showWechatChannelDialog(context, provider),
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AgentHubTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AgentHubTheme.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.forum_outlined,
+                      size: 15,
                       color: provider.wechatService.isRunning
                           ? const Color(0xFF07C160)
                           : AgentHubTheme.textSecondary,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Text(
+                      provider.wechatService.isRunning ? '微信在线' : '微信通道',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: provider.wechatService.isRunning
+                            ? const Color(0xFF07C160)
+                            : AgentHubTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
+          ],
           if (provider.currentTabIndex == 0 && provider.messages.isNotEmpty) ...[
             InkWell(
               onTap: () => provider.clearChatHistory(),
@@ -745,24 +747,6 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             ),
             const SizedBox(width: 8),
           ],
-          // 主题切换按钮
-          InkWell(
-            onTap: () => provider.toggleTheme(),
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: AgentHubTheme.cardBackground,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AgentHubTheme.border),
-              ),
-              child: Icon(
-                provider.isDarkTheme ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                size: 16,
-                color: AgentHubTheme.textSecondary,
-              ),
-            ),
-          ),
           if (provider.currentTabIndex == 0) ...[
             const SizedBox(width: 8),
             // 右侧面板开关
