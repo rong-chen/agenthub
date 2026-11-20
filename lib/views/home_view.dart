@@ -56,7 +56,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     // 强制同步当前主题模式，防止静态变量未即时更新
     AgentHubTheme.isDark = provider.isDarkTheme;
 
-    final showRightPanel = provider.rightPanelType != RightPanelType.none && provider.currentTabIndex == 0;
+    final isChatTab = provider.currentTabIndex == 0;
 
     return Scaffold(
       backgroundColor: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
@@ -69,7 +69,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           ],
           // 第二栏：中间会话/主工作区
           Expanded(
-            flex: showRightPanel ? 5 : 10,
+            flex: isChatTab ? 5 : 10,
             child: Column(
               children: [
                 _buildTopBar(context, provider),
@@ -89,8 +89,8 @@ class _HomeViewState extends State<HomeView> with WindowListener {
               ],
             ),
           ),
-          // 第三栏：右侧内容区域（文件修改区域，支持后续扩展）
-          if (showRightPanel) ...[
+          // 第三栏：右侧内容区域（长显，默认文件修改区域）
+          if (isChatTab) ...[
             VerticalDivider(width: 1, thickness: 1, color: AgentHubTheme.divider),
             Expanded(
               flex: 6,
@@ -102,22 +102,16 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     );
   }
 
-  /// 构建右侧内容区域
+  /// 构建右侧内容区域（长显，支持文件修改及后续扩展）
   Widget _buildRightPanel(BuildContext context, AppStateProvider provider) {
-    switch (provider.rightPanelType) {
-      case RightPanelType.fileDiff:
-        final ckpt = provider.activeCheckpoint;
-        if (ckpt == null) {
-          return const SizedBox.shrink();
-        }
-        return FileDiffPanel(
-          checkpoint: ckpt,
-          message: provider.activeDiffMessage,
-          onClose: () => provider.closeRightPanel(),
-        );
-      case RightPanelType.none:
-        return const SizedBox.shrink();
-    }
+    final activeSession = provider.activeSession;
+    final ckpt = provider.currentDisplayCheckpoint;
+
+    return FileDiffPanel(
+      checkpoint: ckpt,
+      session: activeSession,
+      message: provider.activeDiffMessage,
+    );
   }
 
   /// 会话重命名弹窗

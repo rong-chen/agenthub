@@ -58,8 +58,8 @@ class AppStateProvider extends ChangeNotifier {
   List<ChatSessionModel> _sessions = [];
   String? _activeSessionId;
 
-  // 右侧内容面板（支持文件修改等多功能扩展）
-  RightPanelType _rightPanelType = RightPanelType.none;
+  // 右侧内容面板（支持文件修改等多功能扩展，默认常显）
+  RightPanelType _rightPanelType = RightPanelType.fileDiff;
   CheckpointModel? _activeCheckpoint;
   ChatMessageModel? _activeDiffMessage;
 
@@ -67,7 +67,21 @@ class AppStateProvider extends ChangeNotifier {
   CheckpointModel? get activeCheckpoint => _activeCheckpoint;
   ChatMessageModel? get activeDiffMessage => _activeDiffMessage;
 
-  /// 打开文件修改面板
+  /// 获取当前右侧应展示的 Checkpoint（优先选中的，否则取当前会话最新的一条）
+  CheckpointModel? get currentDisplayCheckpoint {
+    if (_activeCheckpoint != null) return _activeCheckpoint;
+    final session = activeSession;
+    if (session != null) {
+      for (final m in session.messages.reversed) {
+        if (m.checkpoint != null && m.checkpoint!.changedFiles.isNotEmpty) {
+          return m.checkpoint;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// 打开或选中指定的消息文件修改
   void openFileDiffPanel(CheckpointModel checkpoint, [ChatMessageModel? message]) {
     _activeCheckpoint = checkpoint;
     _activeDiffMessage = message;
@@ -119,6 +133,15 @@ class AppStateProvider extends ChangeNotifier {
   List<TaskLogModel> get taskLogs => _taskLogs;
   List<ChatSessionModel> get sessions => _sessions;
   String? get activeSessionId => _activeSessionId;
+
+  /// 当前活跃会话模型
+  ChatSessionModel? get activeSession {
+    if (_activeSessionId == null) return null;
+    return _sessions.cast<ChatSessionModel?>().firstWhere(
+      (s) => s?.id == _activeSessionId,
+      orElse: () => null,
+    );
+  }
   bool get isDarkTheme => _config.themeMode == 'dark';
   WechatChannelService get wechatService => WechatChannelService.instance;
 
@@ -266,6 +289,8 @@ class AppStateProvider extends ChangeNotifier {
     }
     _activeSessionId = sessionId;
     _currentTabIndex = 0;
+    _activeCheckpoint = null;
+    _activeDiffMessage = null;
 
     final session = _sessions.cast<ChatSessionModel?>().firstWhere(
       (s) => s?.id == sessionId,

@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import '../../models/checkpoint_model.dart';
 import '../../models/chat_message_model.dart';
+import '../../models/chat_session_model.dart';
 import '../../providers/app_state_provider.dart';
 import '../../services/checkpoint_service.dart';
 import '../../theme/agenthub_theme.dart';
@@ -328,17 +329,19 @@ class DiffParser {
   }
 }
 
-/// 右侧三栏架构中的文件修改内容面板
+/// 右侧三栏架构中的文件修改内容面板（支持长显与空态）
 class FileDiffPanel extends StatefulWidget {
-  final CheckpointModel checkpoint;
+  final CheckpointModel? checkpoint;
+  final ChatSessionModel? session;
   final ChatMessageModel? message;
-  final VoidCallback onClose;
+  final VoidCallback? onClose;
 
   const FileDiffPanel({
     super.key,
-    required this.checkpoint,
+    this.checkpoint,
+    this.session,
     this.message,
-    required this.onClose,
+    this.onClose,
   });
 
   @override
@@ -361,7 +364,7 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
   @override
   void didUpdateWidget(covariant FileDiffPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.checkpoint.id != widget.checkpoint.id) {
+    if (oldWidget.checkpoint?.id != widget.checkpoint?.id) {
       _loadFileDiffs();
     }
   }
@@ -373,8 +376,18 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
   }
 
   Future<void> _loadFileDiffs() async {
-    setState(() => _isLoading = true);
     final ckpt = widget.checkpoint;
+    if (ckpt == null) {
+      if (mounted) {
+        setState(() {
+          _files = [];
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
     final workDir = ckpt.workDir;
     final backupDir = ckpt.backupDir;
     final changedFiles = ckpt.changedFiles;
@@ -480,9 +493,90 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
   Widget build(BuildContext context) {
     final provider = context.watch<AppStateProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ckpt = widget.checkpoint;
+
+    // 当暂无修改时常显整洁的空态面板
+    if (ckpt == null) {
+      return Container(
+        color: isDark ? const Color(0xFF141414) : const Color(0xFFF9F8F5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+                border: Border(bottom: BorderSide(color: AgentHubTheme.border)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.edit_document, size: 16, color: AgentHubTheme.primaryRed),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '文件修改',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  if (widget.session?.isCodeMode == true && widget.session?.workDir != null) ...[
+                    Icon(Icons.folder_outlined, size: 13, color: AgentHubTheme.textTertiary),
+                    const SizedBox(width: 4),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 260),
+                      child: Text(
+                        widget.session!.workDir!,
+                        style: TextStyle(fontSize: 11, color: AgentHubTheme.textTertiary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.difference_outlined,
+                        size: 48,
+                        color: isDark ? const Color(0xFF333333) : const Color(0xFFD0D0D0),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        '暂无文件修改',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AgentHubTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '在会话中执行修改代码任务后，文件变动与行级 Diff 将实时呈现于此。',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AgentHubTheme.textTertiary,
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final totalAdditions = _files.fold<int>(0, (sum, f) => sum + f.additions);
     final totalDeletions = _files.fold<int>(0, (sum, f) => sum + f.deletions);
-    final isRolledBack = widget.checkpoint.isRolledBack;
+    final isRolledBack = ckpt.isRolledBack;
 
     return Container(
       color: isDark ? const Color(0xFF141414) : const Color(0xFFF9F8F5),
@@ -589,8 +683,8 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
                           if (widget.message != null) {
                             await provider.rollbackMessageCheckpoint(widget.message!);
                           } else {
-                            await CheckpointService.instance.rollback(widget.checkpoint);
-                            setState(() => widget.checkpoint.isRolledBack = true);
+                            await CheckpointService.instance.rollback(ckpt);
+                            setState(() => ckpt.isRolledBack = true);
                           }
                         },
                   borderRadius: BorderRadius.circular(4),
@@ -628,16 +722,17 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                // 关闭面板按钮
-                InkWell(
-                  onTap: widget.onClose,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.close, size: 16, color: AgentHubTheme.textSecondary),
+                if (widget.onClose != null) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: widget.onClose,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(Icons.close, size: 16, color: AgentHubTheme.textSecondary),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
