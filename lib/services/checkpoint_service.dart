@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:diff_match_patch/diff_match_patch.dart';
 import 'package:path/path.dart' as p;
 import '../models/checkpoint_model.dart';
 import '../utils/path_utils.dart';
@@ -133,13 +134,15 @@ class CheckpointService {
       if (!preMap.containsKey(rel)) {
         addedFiles.add(rel);
         changedFiles.add(rel);
-        diffBuffer.writeln('新增文件: $rel (+${post.content.split('\n').length} 行)');
+        final fileDiff = _generateUnifiedDiff(rel, '', post.content, 'add');
+        diffBuffer.writeln(fileDiff);
       } else {
         final pre = preMap[rel]!;
         if (pre.content != post.content) {
           modifiedFiles.add(rel);
           changedFiles.add(rel);
-          diffBuffer.writeln('修改文件: $rel');
+          final fileDiff = _generateUnifiedDiff(rel, pre.content, post.content, 'modify');
+          diffBuffer.writeln(fileDiff);
         }
       }
     }
@@ -150,7 +153,8 @@ class CheckpointService {
       if (!postMap.containsKey(rel)) {
         deletedFiles.add(rel);
         changedFiles.add(rel);
-        diffBuffer.writeln('删除文件: $rel');
+        final fileDiff = _generateUnifiedDiff(rel, entry.value.content, '', 'delete');
+        diffBuffer.writeln(fileDiff);
       }
     }
 
@@ -267,5 +271,79 @@ class CheckpointService {
     checkpoint.isRolledBack = true;
     await _db.updateCheckpoint(checkpoint);
     return true;
+  }
+
+  /// 生成标准的 Unified Diff 差异文本
+  String _generateUnifiedDiff(String relPath, String oldContent, String newContent, String type) {
+    final buffer = StringBuffer();
+    buffer.writeln('diff --git a/$relPath b/$relPath');
+
+    if (type == 'add') {
+      buffer.writeln('new file mode 100644');
+      buffer.writeln('--- /dev/null');
+      buffer.writeln('+++ b/$relPath');
+      final lines = newContent.split('\n');
+      buffer.writeln('@@ -0,0 +1,${lines.length} @@');
+      for (final line in lines) {
+        buffer.writeln('+$line');
+      }
+      return buffer.toString();
+    }
+
+    if (type == 'delete') {
+      buffer.writeln('deleted file mode 100644');
+      buffer.writeln('--- a/$relPath');
+      buffer.writeln('+++ /dev/null');
+      final lines = oldContent.split('\n');
+      buffer.writeln('@@ -1,${lines.length} +0,0 @@');
+      for (final line in lines) {
+        buffer.writeln('-$line');
+      }
+      return buffer.toString();
+    }
+
+    // 修改文件
+    buffer.writeln('--- a/$relPath');
+    buffer.writeln('+++ b/$relPath');
+
+    final patches = patchMake(oldContent, b: newContent);
+    if (patches.isNotEmpty) {
+      for (final patch in patches) {
+        String coords1;
+        if (patch.length1 == 0) {
+          coords1 = '${patch.start1},0';
+        } else if (patch.length1 == 1) {
+          coords1 = (patch.start1 + 1).toString();
+        } else {
+          coords1 = '${patch.start1 + 1},${patch.length1}';
+        }
+
+        String coords2;
+        if (patch.length2 == 0) {
+          coords2 = '${patch.start2},0';
+        } else if (patch.length2 == 1) {
+          coords2 = (patch.start2 + 1).toString();
+        } else {
+          coords2 = '${patch.start2 + 1},${patch.length2}';
+        }
+
+        buffer.writeln('@@ -$coords1 +$coords2 @@');
+        for (final aDiff in patch.diffs) {
+          final prefix = aDiff.operation == DIFF_INSERT
+              ? '+'
+              : (aDiff.operation == DIFF_DELETE ? '-' : ' ');
+          final lines = aDiff.text.split('\n');
+          for (int i = 0; i < lines.length; i++) {
+            if (i == lines.length - 1 && lines[i].isEmpty) continue;
+            buffer.writeln('$prefix${lines[i]}');
+          }
+        }
+      }
+    } else {
+      buffer.writeln('@@ -1 +1 @@');
+      buffer.writeln(' (文件内容变动)');
+    }
+
+    return buffer.toString();
   }
 }
