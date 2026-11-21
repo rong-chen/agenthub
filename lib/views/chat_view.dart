@@ -161,7 +161,6 @@ class _ChatViewState extends State<ChatView> {
                 ? const SizedBox.shrink()
                 : _buildMessageList(provider, messages),
           ),
-          _buildBusyStatusBar(provider),
           _buildInputArea(provider),
         ],
       ),
@@ -233,55 +232,6 @@ class _ChatViewState extends State<ChatView> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               minimumSize: Size.zero,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 正在执行长期任务或下载安装时的浮动提示条
-  Widget _buildBusyStatusBar(AppStateProvider provider) {
-    if (!provider.isBusy) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFFCF222E).withValues(alpha: 0.08),
-        border: Border(top: BorderSide(color: const Color(0xFFCF222E).withValues(alpha: 0.2))),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AgentHubTheme.primaryRed),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '正在执行任务或下载安装依赖...',
-            style: TextStyle(fontSize: 12, color: AgentHubTheme.textPrimary, fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          InkWell(
-            onTap: () => provider.abortCurrentGeneration(),
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFCF222E),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.stop_circle_outlined, size: 12, color: Colors.white),
-                  SizedBox(width: 4),
-                  Text(
-                    '立即停止',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ],
-              ),
             ),
           ),
         ],

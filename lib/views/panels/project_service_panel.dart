@@ -245,6 +245,71 @@ class _ProjectServicePanelState extends State<ProjectServicePanel> {
                   _buildStepStatusDot(activeStep.status),
                 ],
 
+                // 停止服务或停止正在执行的命令按钮
+                if (showBgService || hasRunningBgService) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () {
+                      _serviceManager.stopService(widget.sessionId);
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCF222E).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFCF222E).withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.stop, size: 12, color: Color(0xFFCF222E)),
+                          SizedBox(width: 3),
+                          Text(
+                            '停止服务',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFCF222E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else if (activeStep != null && activeStep.status == ToolStepStatus.running) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () {
+                      provider.abortCurrentGeneration();
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCF222E).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFCF222E).withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.stop, size: 12, color: Color(0xFFCF222E)),
+                          SizedBox(width: 3),
+                          Text(
+                            '停止命令',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFCF222E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(width: 8),
 
                 // 自动滚动开关
