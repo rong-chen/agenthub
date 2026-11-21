@@ -186,6 +186,37 @@ class ClaudeProcessManager {
 
     bool hasReceivedContent = false;
     final stderrBuffer = StringBuffer();
+    bool isCompleted = false;
+    Timer? postResultTimer;
+
+    // 统一处理任务结束与资源释放，防止常驻后台任务阻塞流退出
+    Future<void> finishTask({int? exitCode}) async {
+      if (isCompleted) return;
+      isCompleted = true;
+      postResultTimer?.cancel();
+
+      inst.process = null;
+      inst.status = (exitCode == null || exitCode == 0)
+          ? ClaudeProcessStatus.idle
+          : ClaudeProcessStatus.error;
+      inst.appendLog('> 任务流式处理结束');
+      await _db.saveInstance(inst);
+
+      if (exitCode != null && exitCode != 0 && !hasReceivedContent) {
+        final errText = stderrBuffer.isNotEmpty
+            ? stderrBuffer.toString()
+            : 'Claude Code 退出，退出码: $exitCode';
+        controller.add(ClaudeStreamEvent(type: 'error', content: errText));
+      }
+
+      controller.add(const ClaudeStreamEvent(type: 'done'));
+      await controller.close();
+
+      // 若流已完成但宿主进程由于后台管道未退，优雅清理当前命令进程
+      try {
+        process.kill();
+      } catch (_) {}
+    }
 
     // 监听标准输出
     process.stdout
@@ -209,6 +240,13 @@ class ClaudeProcessManager {
             inst.appendLog('> 正在调用工具: ${event.toolName}');
           }
           controller.add(event);
+
+          // 当收到终态 result 或 error 时，说明回复已完整，等待 300ms 后强制收尾
+          if (event.type == 'result' || event.type == 'error') {
+            postResultTimer = Timer(const Duration(milliseconds: 300), () {
+              finishTask();
+            });
+          }
         }
       } catch (_) {
         inst.appendLog(trimmed);
@@ -229,18 +267,7 @@ class ClaudeProcessManager {
 
     // 监听进程退出
     process.exitCode.then((code) async {
-      inst.process = null;
-      inst.status = code == 0 ? ClaudeProcessStatus.idle : ClaudeProcessStatus.error;
-      inst.appendLog('> 进程执行结束，退出码: $code');
-      await _db.saveInstance(inst);
-
-      if (code != 0 && !hasReceivedContent) {
-        final errText = stderrBuffer.isNotEmpty ? stderrBuffer.toString() : 'Claude Code 退出，退出码: $code';
-        controller.add(ClaudeStreamEvent(type: 'error', content: errText));
-      }
-
-      controller.add(const ClaudeStreamEvent(type: 'done'));
-      await controller.close();
+      await finishTask(exitCode: code);
     });
   }
 

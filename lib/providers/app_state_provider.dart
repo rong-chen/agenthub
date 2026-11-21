@@ -899,6 +899,10 @@ class AppStateProvider extends ChangeNotifier {
             break;
           }
 
+          if (event.type == 'done') {
+            break;
+          }
+
           // 1. 多阶段思考过程处理（按轮次独立追加，绝不覆盖历史阶段）
           if (event.isThinking || (event.thinking != null && event.thinking!.isNotEmpty) || event.thinkings.isNotEmpty) {
             assistantMessage.isThinking = true;
