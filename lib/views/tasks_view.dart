@@ -235,7 +235,9 @@ class _TasksViewState extends State<TasksView> {
   Widget _dialogField(TextEditingController controller, String hint) {
     return TextField(
       controller: controller,
-      style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
+      cursorWidth: 1.5,
+      cursorRadius: const Radius.circular(1),
+      style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.6),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary),
@@ -341,9 +343,11 @@ class _TasksViewState extends State<TasksView> {
             decoration: BoxDecoration(color: AgentHubTheme.cardBackground, borderRadius: BorderRadius.circular(8), border: Border.all(color: AgentHubTheme.border)),
             child: TextField(
               controller: _searchController,
+              cursorWidth: 1.5,
+              cursorRadius: const Radius.circular(1),
               onChanged: (_) => setState(() {}),
               textAlignVertical: TextAlignVertical.center,
-              style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
+              style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.6),
               decoration: InputDecoration(
                 isDense: true,
                 hintText: '搜索',

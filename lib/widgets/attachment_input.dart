@@ -151,9 +151,11 @@ class _AttachmentInputState extends State<AttachmentInput> {
                 Expanded(
                   child: TextField(
                     controller: _textController,
+                    cursorWidth: 1.5,
+                    cursorRadius: const Radius.circular(1),
                     maxLines: 4,
                     minLines: 1,
-                    style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+                    style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
                     decoration: InputDecoration(
                       hintText: '输入任务指令，支持粘贴剪贴板图片或拖入文件...',
                       hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),

@@ -40,7 +40,9 @@ class _SkillsViewState extends State<SkillsView> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: textController,
-                  style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+                  cursorWidth: 1.5,
+                  cursorRadius: const Radius.circular(1),
+                  style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AgentHubTheme.background,
@@ -188,9 +190,11 @@ class _SkillsViewState extends State<SkillsView> {
               decoration: BoxDecoration(color: AgentHubTheme.cardBackground, borderRadius: BorderRadius.circular(8), border: Border.all(color: AgentHubTheme.border)),
               child: TextField(
                 controller: _searchController,
+                cursorWidth: 1.5,
+                cursorRadius: const Radius.circular(1),
                 onChanged: (_) => setState(() {}),
                 textAlignVertical: TextAlignVertical.center,
-                style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary),
+                style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.6),
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: '搜索',

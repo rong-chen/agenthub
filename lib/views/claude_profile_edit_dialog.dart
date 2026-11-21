@@ -556,8 +556,10 @@ class _ClaudeProfileEditDialogState extends State<ClaudeProfileEditDialog> {
                     TextField(
                       controller: _apiKeyCtrl,
                       obscureText: _obscureApiKey,
+                      cursorWidth: 1.5,
+                      cursorRadius: const Radius.circular(1),
                       onChanged: (_) => setState(() {}),
-                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
                       decoration: InputDecoration(
                         hintText: '请输入访问密钥',
                         hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
@@ -754,11 +756,13 @@ class _ClaudeProfileEditDialogState extends State<ClaudeProfileEditDialog> {
   Widget _buildTextField(TextEditingController ctrl, String hint) {
     return TextField(
       controller: ctrl,
+      cursorWidth: 1.5,
+      cursorRadius: const Radius.circular(1),
       onChanged: (_) => setState(() {}),
-      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
+        hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13, letterSpacing: 0.6),
         filled: true,
         fillColor: AgentHubTheme.background,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

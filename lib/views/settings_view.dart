@@ -438,7 +438,9 @@ class _SettingsViewState extends State<SettingsView> {
       TextField(
         controller: controller,
         obscureText: isPassword,
-        style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+        cursorWidth: 1.5,
+        cursorRadius: const Radius.circular(1),
+        style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500, letterSpacing: 0.6),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),

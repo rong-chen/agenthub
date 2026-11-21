@@ -63,21 +63,25 @@ class AgentHubTheme {
       primaryColor: primaryRed,
       colorScheme: colorScheme,
       dividerColor: div,
-      fontFamily: Platform.isWindows ? 'Microsoft YaHei UI' : 'PingFang SC',
+      fontFamily: Platform.isWindows ? 'Segoe UI' : '-apple-system',
       fontFamilyFallback: const [
-        'Microsoft YaHei',
+        '-apple-system',
+        'BlinkMacSystemFont',
+        'SF Pro Text',
         'PingFang SC',
+        'Microsoft YaHei UI',
+        'Microsoft YaHei',
         'Segoe UI',
         'Hiragino Sans GB',
         'sans-serif',
       ],
       // 全局文本字重优化，加粗防虚化
       textTheme: TextTheme(
-        bodyLarge: TextStyle(color: txtPrimary, fontWeight: FontWeight.w500, fontSize: 14),
-        bodyMedium: TextStyle(color: txtPrimary, fontWeight: FontWeight.w500, fontSize: 13),
-        bodySmall: TextStyle(color: txtSecondary, fontWeight: FontWeight.w500, fontSize: 12),
-        titleMedium: TextStyle(color: txtPrimary, fontWeight: FontWeight.w600, fontSize: 15),
-        titleLarge: TextStyle(color: txtPrimary, fontWeight: FontWeight.bold, fontSize: 18),
+        bodyLarge: TextStyle(color: txtPrimary, fontWeight: FontWeight.w500, fontSize: 14, letterSpacing: 0.4),
+        bodyMedium: TextStyle(color: txtPrimary, fontWeight: FontWeight.w500, fontSize: 13, letterSpacing: 0.4),
+        bodySmall: TextStyle(color: txtSecondary, fontWeight: FontWeight.w500, fontSize: 12, letterSpacing: 0.3),
+        titleMedium: TextStyle(color: txtPrimary, fontWeight: FontWeight.w600, fontSize: 15, letterSpacing: 0.3),
+        titleLarge: TextStyle(color: txtPrimary, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.2),
       ),
       // 顶栏主题：与背景一致
       appBarTheme: AppBarTheme(
@@ -88,7 +92,7 @@ class AgentHubTheme {
       ),
       // 输入框提示词主题
       inputDecorationTheme: InputDecorationTheme(
-        hintStyle: TextStyle(color: txtTertiary, fontSize: 13),
+        hintStyle: TextStyle(color: txtTertiary, fontSize: 13, letterSpacing: 0.4),
       ),
       // 卡片主题
       cardTheme: CardThemeData(
@@ -99,11 +103,11 @@ class AgentHubTheme {
           side: BorderSide(color: bdr),
         ),
       ),
-      // 文本选择与划选高亮主题
+      // 文本选择与光标主题
       textSelectionTheme: TextSelectionThemeData(
+        cursorColor: primaryRed,
         selectionColor: dark ? const Color(0x60388BFD) : const Color(0x350969DA),
         selectionHandleColor: primaryRed,
-        cursorColor: primaryRed,
       ),
     );
   }

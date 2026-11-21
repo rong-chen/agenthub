@@ -340,7 +340,9 @@ class _HomeViewState extends State<HomeView> with WindowListener {
             child: TextField(
               controller: titleCtrl,
               autofocus: true,
-              style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+              cursorWidth: 1.5,
+              cursorRadius: const Radius.circular(1),
+              style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
               decoration: InputDecoration(
                 filled: true,
                 fillColor: AgentHubTheme.background,
@@ -544,8 +546,10 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                   children: [
                     TextField(
                       controller: searchCtrl,
+                      cursorWidth: 1.5,
+                      cursorRadius: const Radius.circular(1),
                       onChanged: (_) => setDialogState(() {}),
-                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13),
+                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: AgentHubTheme.background,
