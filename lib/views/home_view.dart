@@ -973,8 +973,8 @@ class _HomeViewState extends State<HomeView> with WindowListener {
           const SizedBox(height: 8),
           _buildNavItem(
             1,
-            Icons.terminal_outlined,
-            'Claude 工作台',
+            Icons.manage_accounts_outlined,
+            '账号管理',
             provider,
           ),
           _buildNavItem(

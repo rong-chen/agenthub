@@ -5,7 +5,7 @@ import 'package:agenthub/models/claude_profile.dart';
 import 'package:agenthub/services/attachment_service.dart';
 
 void main() {
-  group('Claude 工作台模型与服务测试', () {
+  group('账号管理模型与服务测试', () {
     test('ClaudeEnvInfo 初始与 copyWith 测试', () {
       const info = ClaudeEnvInfo(
         isInstalled: true,
