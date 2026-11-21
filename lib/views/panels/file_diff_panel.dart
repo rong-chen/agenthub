@@ -775,96 +775,92 @@ class _FileDiffPanelState extends State<FileDiffPanel> {
           buttonItems: selectableRegionState.contextMenuButtonItems,
         );
       },
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: lines.map((line) {
-              // Hunk 折叠胶囊（禁用选择）
-              if (line.type == DiffLineType.hunkHeader) {
-                final count = line.skippedCount;
-                return SelectionContainer.disabled(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: lines.map((line) {
+            // Hunk 折叠胶囊（禁用选择）
+            if (line.type == DiffLineType.hunkHeader) {
+              final count = line.skippedCount;
+              return SelectionContainer.disabled(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  alignment: Alignment.center,
                   child: Container(
-                    width: 900,
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    alignment: Alignment.center,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF21262D) : const Color(0xFFE1E4E8),
-                        borderRadius: BorderRadius.circular(10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF21262D) : const Color(0xFFE1E4E8),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      count > 0 ? '+$count more lines' : '···',
+                      style: TextStyle(
+                        fontFamily: 'Menlo, Monaco, Courier, monospace',
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? const Color(0xFF8B949E) : const Color(0xFF586069),
                       ),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final isDelete = line.type == DiffLineType.delete;
+            final isAdd = line.type == DiffLineType.add;
+
+            Color? rowBg;
+            if (isDelete) {
+              rowBg = isDark ? const Color(0xFF5A1E1E) : const Color(0xFFFFDCE0);
+            } else if (isAdd) {
+              rowBg = isDark ? const Color(0xFF1E4620) : const Color(0xFFDCFFE4);
+            }
+
+            final lineNumStr = isDelete
+                ? ''
+                : (line.newLineNumber != null ? '${line.newLineNumber}' : '');
+
+            return Container(
+              color: rowBg ?? Colors.transparent,
+              padding: const EdgeInsets.symmetric(vertical: 2.5, horizontal: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 单列行号（禁用选择，防止混入复制代码）
+                  SelectionContainer.disabled(
+                    child: SizedBox(
+                      width: 44,
                       child: Text(
-                        count > 0 ? '+$count more lines' : '···',
+                        lineNumStr,
+                        textAlign: TextAlign.right,
                         style: TextStyle(
                           fontFamily: 'Menlo, Monaco, Courier, monospace',
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? const Color(0xFF8B949E) : const Color(0xFF586069),
+                          fontSize: 12,
+                          height: 1.4,
+                          color: lineNumberColor,
                         ),
                       ),
                     ),
                   ),
-                );
-              }
-
-              final isDelete = line.type == DiffLineType.delete;
-              final isAdd = line.type == DiffLineType.add;
-
-              Color? rowBg;
-              if (isDelete) {
-                rowBg = isDark ? const Color(0xFF5A1E1E) : const Color(0xFFFFDCE0);
-              } else if (isAdd) {
-                rowBg = isDark ? const Color(0xFF1E4620) : const Color(0xFFDCFFE4);
-              }
-
-              final lineNumStr = isDelete
-                  ? ''
-                  : (line.newLineNumber != null ? '${line.newLineNumber}' : '');
-
-              return Container(
-                width: 900,
-                color: rowBg ?? Colors.transparent,
-                padding: const EdgeInsets.symmetric(vertical: 2.5),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 单列行号（禁用选择，防止混入复制代码）
-                    SelectionContainer.disabled(
-                      child: SizedBox(
-                        width: 44,
-                        child: Text(
-                          lineNumStr,
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontFamily: 'Menlo, Monaco, Courier, monospace',
-                            fontSize: 12,
-                            height: 1.4,
-                            color: lineNumberColor,
-                          ),
-                        ),
+                  const SizedBox(width: 14),
+                  // 代码文本正文（随可视大小自动换行）
+                  Expanded(
+                    child: Text(
+                      line.text.isEmpty ? ' ' : line.text,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontFamily: 'Menlo, Monaco, Courier, monospace',
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: textNormalColor,
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    // 代码文本正文
-                    Expanded(
-                      child: Text(
-                        line.text.isEmpty ? ' ' : line.text,
-                        style: TextStyle(
-                          fontFamily: 'Menlo, Monaco, Courier, monospace',
-                          fontSize: 12.5,
-                          height: 1.4,
-                          color: textNormalColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
         ),
       ),
     );

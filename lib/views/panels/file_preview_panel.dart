@@ -74,7 +74,7 @@ class FilePreviewPanel extends StatelessWidget {
               ],
             ),
           ),
-          // 沉浸式代码浏览视图（支持多行框选与右键复制）
+          // 沉浸式代码浏览视图（支持多行框选与右键复制，随可视宽度自动折行）
           Expanded(
             child: SelectionArea(
               contextMenuBuilder: (context, selectableRegionState) {
@@ -83,58 +83,50 @@ class FilePreviewPanel extends StatelessWidget {
                   buttonItems: selectableRegionState.contextMenuButtonItems,
                 );
               },
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Column(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                itemCount: lines.length,
+                itemBuilder: (context, idx) {
+                  final lineText = lines[idx];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: List.generate(lines.length, (idx) {
-                        final lineText = lines[idx];
-                        return Container(
-                          width: 900,
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 行号列（禁用选中）
-                              SelectionContainer.disabled(
-                                child: SizedBox(
-                                  width: 44,
-                                  child: Text(
-                                    '${idx + 1}',
-                                    textAlign: TextAlign.right,
-                                    style: TextStyle(
-                                      fontFamily: 'Menlo, Monaco, Courier, monospace',
-                                      fontSize: 12,
-                                      height: 1.4,
-                                      color: lineNumberColor,
-                                    ),
-                                  ),
-                                ),
+                      children: [
+                        // 行号列（禁用选中）
+                        SelectionContainer.disabled(
+                          child: SizedBox(
+                            width: 44,
+                            child: Text(
+                              '${idx + 1}',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontFamily: 'Menlo, Monaco, Courier, monospace',
+                                fontSize: 12,
+                                height: 1.4,
+                                color: lineNumberColor,
                               ),
-                              const SizedBox(width: 14),
-                              // 代码文本
-                              Expanded(
-                                child: Text(
-                                  lineText.isEmpty ? ' ' : lineText,
-                                  style: TextStyle(
-                                    fontFamily: 'Menlo, Monaco, Courier, monospace',
-                                    fontSize: 12.5,
-                                    height: 1.4,
-                                    color: textNormalColor,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        );
-                      }),
+                        ),
+                        const SizedBox(width: 14),
+                        // 代码文本（随可视宽度自动换行）
+                        Expanded(
+                          child: Text(
+                            lineText.isEmpty ? ' ' : lineText,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontFamily: 'Menlo, Monaco, Courier, monospace',
+                              fontSize: 12.5,
+                              height: 1.4,
+                              color: textNormalColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           ),

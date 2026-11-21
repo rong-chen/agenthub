@@ -153,48 +153,49 @@ class _ChatViewState extends State<ChatView> {
 
   /// 消息列表（从顶部按时间顺序正常向下排列，支持多行划选与右键复制）
   Widget _buildMessageList(AppStateProvider provider, List<ChatMessageModel> messages) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final maxBubbleWidth = screenWidth * 0.7;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxBubbleWidth = constraints.maxWidth > 80 ? constraints.maxWidth * 0.88 : constraints.maxWidth;
 
-    return SelectionArea(
-      contextMenuBuilder: (context, selectableRegionState) {
-        return AdaptiveTextSelectionToolbar.buttonItems(
-          anchors: selectableRegionState.contextMenuAnchors,
-          buttonItems: selectableRegionState.contextMenuButtonItems,
-        );
-      },
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        itemCount: messages.length,
-        itemBuilder: (context, index) {
-          final message = messages[index];
-          final isUser = message.role == MessageRole.user;
+        return SelectionArea(
+          contextMenuBuilder: (context, selectableRegionState) {
+            return AdaptiveTextSelectionToolbar.buttonItems(
+              anchors: selectableRegionState.contextMenuAnchors,
+              buttonItems: selectableRegionState.contextMenuButtonItems,
+            );
+          },
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            itemCount: messages.length,
+            itemBuilder: (context, index) {
+              final message = messages[index];
+              final isUser = message.role == MessageRole.user;
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-              children: [
-                if (!isUser) ...[
-                  // AI 头像
-                  SelectionContainer.disabled(
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(color: AgentHubTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
-                      alignment: Alignment.center,
-                      child: Icon(Icons.smart_toy_outlined, size: 18, color: AgentHubTheme.textPrimary),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                ],
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                  child: Column(
-                    crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                  children: [
+                    if (!isUser) ...[
+                      // AI 头像
+                      SelectionContainer.disabled(
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(color: AgentHubTheme.pillBackground, borderRadius: BorderRadius.circular(8)),
+                          alignment: Alignment.center,
+                          child: Icon(Icons.smart_toy_outlined, size: 18, color: AgentHubTheme.textPrimary),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                      child: Column(
+                        crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                     children: [
                       if (message.attachments != null && message.attachments!.isNotEmpty) ...[
                         Wrap(
@@ -493,7 +494,9 @@ class _ChatViewState extends State<ChatView> {
       },
     ),
   );
-}
+      },
+    );
+  }
 
   /// 弹出确认回滚对话框
   void _confirmRollback(AppStateProvider provider, ChatMessageModel message) {
