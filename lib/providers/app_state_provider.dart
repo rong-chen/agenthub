@@ -892,6 +892,7 @@ class AppStateProvider extends ChangeNotifier {
         );
 
         bool inThinkingPhase = false;
+        int lastStreamNotifyTime = 0;
 
         await for (final event in stream) {
           if (_abortedSessionIds.contains(currentSessionId)) {
@@ -985,7 +986,18 @@ class AppStateProvider extends ChangeNotifier {
               if (s.status == ToolStepStatus.running) s.status = ToolStepStatus.error;
             }
           }
-          notifyListeners();
+
+          final isKeyframe = event.type == 'error' ||
+              event.type == 'result' ||
+              event.toolSteps.isNotEmpty ||
+              event.toolName != null ||
+              event.toolOutput != null;
+
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (isKeyframe || now - lastStreamNotifyTime >= 50) {
+            lastStreamNotifyTime = now;
+            notifyListeners();
+          }
         }
       } catch (e) {
         assistantMessage.isThinking = false;

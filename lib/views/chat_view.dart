@@ -81,8 +81,12 @@ class _ChatViewState extends State<ChatView> {
     _scrollToBottom(animate: true);
   }
 
+  bool _isScrolling = false;
+
   /// 滚动到消息底部
   void _scrollToBottom({bool animate = true}) {
+    if (_isScrolling && animate) return;
+
     void execute() {
       if (!_scrollController.hasClients) {
         return;
@@ -92,11 +96,16 @@ class _ChatViewState extends State<ChatView> {
         return;
       }
       if (animate) {
+        _isScrolling = true;
         _scrollController.animateTo(
           target,
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
-        );
+        ).then((_) {
+          _isScrolling = false;
+        }).catchError((_) {
+          _isScrolling = false;
+        });
       } else {
         _scrollController.jumpTo(target);
       }
@@ -104,9 +113,6 @@ class _ChatViewState extends State<ChatView> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       execute();
-      Future.delayed(const Duration(milliseconds: 30), execute);
-      Future.delayed(const Duration(milliseconds: 80), execute);
-      Future.delayed(const Duration(milliseconds: 160), execute);
     });
   }
 
@@ -120,9 +126,12 @@ class _ChatViewState extends State<ChatView> {
       _lastSessionId = provider.activeSessionId;
       _lastMessageCount = messages.length;
       _scrollToBottom(animate: false);
-    } else if (messages.length != _lastMessageCount || provider.isBusy) {
+    } else if (messages.length != _lastMessageCount) {
       _lastMessageCount = messages.length;
       _scrollToBottom(animate: true);
+    } else if (provider.isBusy) {
+      // 流式输出中无动画瞬时定位，避免动画队列堆积产生卡顿
+      _scrollToBottom(animate: false);
     }
 
     if (provider.pendingInputPrompt != null) {
