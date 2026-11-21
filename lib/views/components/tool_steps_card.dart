@@ -111,6 +111,38 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
                     ),
                   ],
                   const Spacer(),
+                  if (step.status == ToolStepStatus.running) ...[
+                    InkWell(
+                      onTap: () {
+                        context.read<AppStateProvider>().abortCurrentGeneration();
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCF222E).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFCF222E).withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.stop_circle_outlined, size: 12, color: Color(0xFFCF222E)),
+                            SizedBox(width: 4),
+                            Text(
+                              '停止任务',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFCF222E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   _buildStatusDot(step.status),
                 ],
               ),
@@ -264,9 +296,44 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
                         ],
                       ),
                     ] else ...[
-                      Text(
-                        '进行中...',
-                        style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '进行中...',
+                            style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () {
+                              context.read<AppStateProvider>().abortCurrentGeneration();
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFCF222E).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFCF222E).withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.stop_circle_outlined, size: 12, color: Color(0xFFCF222E)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    '停止任务',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFCF222E),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                     const SizedBox(width: 8),
@@ -363,6 +430,31 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
                                             ),
                                           ),
                                         ),
+                                        if (child.status == ToolStepStatus.running) ...[
+                                          InkWell(
+                                            onTap: () {
+                                              context.read<AppStateProvider>().abortCurrentGeneration();
+                                            },
+                                            borderRadius: BorderRadius.circular(4),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              margin: const EdgeInsets.only(right: 6),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFCF222E).withValues(alpha: 0.12),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: const Color(0xFFCF222E).withValues(alpha: 0.3)),
+                                              ),
+                                              child: const Text(
+                                                '停止',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFFCF222E),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                         _buildStatusDot(child.status),
                                       ],
                                     ),

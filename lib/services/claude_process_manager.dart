@@ -271,13 +271,22 @@ class ClaudeProcessManager {
     });
   }
 
-  /// 终止运行中的实例
+  /// 终止运行中的实例（深度清理子进程树，防止 npm run dev / npm i 等子孙进程残留）
   Future<void> killInstance(String instanceId) async {
     final inst = _instances[instanceId];
     if (inst == null) return;
 
     if (inst.process != null) {
-      inst.process!.kill();
+      final pid = inst.process!.pid;
+      if (Platform.isMacOS || Platform.isLinux) {
+        try {
+          // 清理衍生出的所有子进程树
+          Process.runSync('pkill', ['-P', '$pid']);
+        } catch (_) {}
+      }
+      try {
+        inst.process!.kill(ProcessSignal.sigkill);
+      } catch (_) {}
       inst.process = null;
     }
     inst.status = ClaudeProcessStatus.terminated;

@@ -10,6 +10,7 @@ import '../models/chat_session_model.dart';
 import '../models/tool_step_model.dart';
 import '../providers/app_state_provider.dart';
 import '../services/attachment_service.dart';
+import '../services/project_service_manager.dart';
 import '../theme/agenthub_theme.dart';
 import '../widgets/app_text_field.dart';
 import 'components/tool_steps_card.dart';
@@ -154,12 +155,135 @@ class _ChatViewState extends State<ChatView> {
       color: provider.isDarkTheme ? const Color(0xFF181818) : const Color(0xFFF9F8F5),
       child: Column(
         children: [
+          _buildActiveServiceBanner(provider),
           Expanded(
             child: messages.isEmpty
                 ? const SizedBox.shrink()
                 : _buildMessageList(provider, messages),
           ),
+          _buildBusyStatusBar(provider),
           _buildInputArea(provider),
+        ],
+      ),
+    );
+  }
+
+  /// 本地常驻服务（如 npm run dev）运行状态横幅，提供一键停止与控制台跳转
+  Widget _buildActiveServiceBanner(AppStateProvider provider) {
+    final session = provider.activeSession;
+    if (session == null) return const SizedBox.shrink();
+    final service = ProjectServiceManager.instance.getInstance(session.id);
+    if (service == null || !service.isRunning) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AgentHubTheme.cardBackground,
+        border: Border(bottom: BorderSide(color: AgentHubTheme.border)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.play_circle_fill, size: 16, color: Color(0xFF2EA44F)),
+          const SizedBox(width: 8),
+          Text(
+            '本地服务运行中:',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AgentHubTheme.textPrimary),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AgentHubTheme.pillBackground,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              service.command,
+              style: TextStyle(
+                fontSize: 11,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+                color: AgentHubTheme.textPrimary,
+              ),
+            ),
+          ),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: () {
+              provider.switchRightPanelTab(RightPanelType.serviceRunner);
+            },
+            icon: const Icon(Icons.terminal, size: 13),
+            label: const Text('控制台', style: TextStyle(fontSize: 11)),
+            style: TextButton.styleFrom(
+              foregroundColor: AgentHubTheme.textSecondary,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () {
+              ProjectServiceManager.instance.stopService(session.id);
+            },
+            icon: const Icon(Icons.stop, size: 13),
+            label: const Text('停止服务', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFCF222E),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              minimumSize: Size.zero,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 正在执行长期任务或下载安装时的浮动提示条
+  Widget _buildBusyStatusBar(AppStateProvider provider) {
+    if (!provider.isBusy) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFCF222E).withValues(alpha: 0.08),
+        border: Border(top: BorderSide(color: const Color(0xFFCF222E).withValues(alpha: 0.2))),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AgentHubTheme.primaryRed),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '正在执行任务或下载安装依赖...',
+            style: TextStyle(fontSize: 12, color: AgentHubTheme.textPrimary, fontWeight: FontWeight.w500),
+          ),
+          const Spacer(),
+          InkWell(
+            onTap: () => provider.abortCurrentGeneration(),
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFCF222E),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.stop_circle_outlined, size: 12, color: Colors.white),
+                  SizedBox(width: 4),
+                  Text(
+                    '立即停止',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

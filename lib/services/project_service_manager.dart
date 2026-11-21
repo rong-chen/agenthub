@@ -45,6 +45,9 @@ class ProjectServiceInstance {
     this.command = '',
   });
 
+  /// 服务是否处于运行中或启动中状态
+  bool get isRunning => status == ServiceStatus.running || status == ServiceStatus.starting;
+
   /// 添加单条日志并控制最大缓存行数
   void appendLog(String line, {bool isError = false}) {
     final now = DateTime.now();

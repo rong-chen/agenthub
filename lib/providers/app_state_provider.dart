@@ -1345,6 +1345,26 @@ class AppStateProvider extends ChangeNotifier {
     // 中止代码模式下的独立 Claude Code 进程
     _processManager.killInstance('session_$sid');
 
+    // 终止该会话下关联的运行中本地服务
+    final service = ProjectServiceManager.instance.getInstance(sid);
+    if (service != null && service.isRunning) {
+      ProjectServiceManager.instance.stopService(sid);
+    }
+
+    // 将该会话中最后一条正在运行的步骤标记为终止
+    final session = _sessions.cast<ChatSessionModel?>().firstWhere((s) => s?.id == sid, orElse: () => null);
+    if (session != null && session.messages.isNotEmpty) {
+      final lastMsg = session.messages.last;
+      for (final step in lastMsg.toolSteps) {
+        if (step.status == ToolStepStatus.running) {
+          step.status = ToolStepStatus.error;
+          step.output = (step.output == null || step.output!.isEmpty)
+              ? '[用户已手动终止该任务]'
+              : '${step.output}\n[用户已手动终止该任务]';
+        }
+      }
+    }
+
     _busySessionIds.remove(sid);
     notifyListeners();
   }
