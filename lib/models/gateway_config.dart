@@ -1,3 +1,5 @@
+import '../config/app_env.dart';
+
 /// 本地网关与核心配置模型
 class GatewayConfig {
   int gatewayPort;
@@ -33,7 +35,7 @@ class GatewayConfig {
   /// 创建初始配置
   factory GatewayConfig.initial() {
     return GatewayConfig(
-      gatewayPort: 18789,
+      gatewayPort: AppEnv.defaultGatewayPort,
       autoStartGateway: true,
       apiBaseUrl: '',
       apiKey: '',

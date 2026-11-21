@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import '../config/app_env.dart';
 import '../models/chat_session_model.dart';
 import '../models/chat_message_model.dart';
 import '../models/scheduled_task_model.dart';
@@ -34,7 +35,7 @@ class DatabaseService {
     sqfliteFfiInit();
     final dbFactory = databaseFactoryFfi;
 
-    final dbPath = '${PathUtils.agentHubRootDir}/agenthub.db';
+    final dbPath = '${PathUtils.agentHubRootDir}/${AppEnv.dbFileName}';
     final db = await dbFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
