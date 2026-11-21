@@ -20,6 +20,7 @@ import 'panels/file_diff_panel.dart';
 import 'panels/file_preview_panel.dart';
 import 'panels/project_service_panel.dart';
 import '../services/project_service_manager.dart';
+import '../widgets/app_text_field.dart';
 
 /// 主窗口布局，包含左侧边栏与主工作区
 class HomeView extends StatefulWidget {
@@ -327,7 +328,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
 
   /// 会话重命名弹窗
   void _showRenameDialog(BuildContext context, AppStateProvider provider, String sessionId, String currentTitle) {
-    final titleCtrl = TextEditingController(text: currentTitle);
+    final titleCtrl = AppTextEditingController(text: currentTitle);
     showDialog(
       context: context,
       builder: (ctx) {
@@ -342,7 +343,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
               autofocus: true,
               cursorWidth: 1.5,
               cursorRadius: const Radius.circular(1),
-              style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
+              style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.8),
               decoration: InputDecoration(
                 filled: true,
                 fillColor: AgentHubTheme.background,
@@ -522,7 +523,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
 
   /// 会话搜索弹窗
   void _showSearchDialog(BuildContext context, AppStateProvider provider) {
-    final searchCtrl = TextEditingController();
+    final searchCtrl = AppTextEditingController();
     showDialog(
       context: context,
       builder: (ctx) {
@@ -549,7 +550,7 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                       cursorWidth: 1.5,
                       cursorRadius: const Radius.circular(1),
                       onChanged: (_) => setDialogState(() {}),
-                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
+                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.8),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: AgentHubTheme.background,

@@ -5,6 +5,7 @@ import '../models/gateway_config.dart';
 import '../providers/app_state_provider.dart';
 import '../services/wechat_channel_service.dart';
 import '../theme/agenthub_theme.dart';
+import '../widgets/app_text_field.dart';
 
 /// 系统设置视图（含主题切换）
 class SettingsView extends StatefulWidget {
@@ -30,14 +31,14 @@ class _SettingsViewState extends State<SettingsView> {
   void initState() {
     super.initState();
     final config = context.read<AppStateProvider>().config;
-    _gatewayPortController = TextEditingController(text: config.gatewayPort.toString());
-    _apiBaseUrlController = TextEditingController(text: config.apiBaseUrl);
-    _apiKeyController = TextEditingController(text: config.apiKey);
-    _modelNameController = TextEditingController(text: config.modelName);
-    _customSkillsPathController = TextEditingController(text: config.customSkillsPath);
-    _httpProxyController = TextEditingController(text: config.httpProxy);
-    _temperatureController = TextEditingController(text: config.temperature.toString());
-    _topPController = TextEditingController(text: config.topP.toString());
+    _gatewayPortController = AppTextEditingController(text: config.gatewayPort.toString());
+    _apiBaseUrlController = AppTextEditingController(text: config.apiBaseUrl);
+    _apiKeyController = AppTextEditingController(text: config.apiKey);
+    _modelNameController = AppTextEditingController(text: config.modelName);
+    _customSkillsPathController = AppTextEditingController(text: config.customSkillsPath);
+    _httpProxyController = AppTextEditingController(text: config.httpProxy);
+    _temperatureController = AppTextEditingController(text: config.temperature.toString());
+    _topPController = AppTextEditingController(text: config.topP.toString());
     _autoStartGateway = config.autoStartGateway;
     _minimizeToTray = config.minimizeToTrayOnClose;
   }
@@ -440,10 +441,10 @@ class _SettingsViewState extends State<SettingsView> {
         obscureText: isPassword,
         cursorWidth: 1.5,
         cursorRadius: const Radius.circular(1),
-        style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500, letterSpacing: 0.6),
+        style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500, letterSpacing: 0.8),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
+          hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13, letterSpacing: 0.8),
           filled: true,
           fillColor: AgentHubTheme.inputBackground,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),

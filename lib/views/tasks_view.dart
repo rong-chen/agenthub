@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/scheduled_task_model.dart';
 import '../providers/app_state_provider.dart';
 import '../theme/agenthub_theme.dart';
+import '../widgets/app_text_field.dart';
 
 /// 定时计划任务视图
 class TasksView extends StatefulWidget {
@@ -13,7 +14,7 @@ class TasksView extends StatefulWidget {
 }
 
 class _TasksViewState extends State<TasksView> {
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = AppTextEditingController();
   int _activeTab = 0; // 0: 自动化, 1: 运行历史
   String _filterStatus = 'all';
 
@@ -41,9 +42,9 @@ class _TasksViewState extends State<TasksView> {
   }
 
   void _showEditTaskDialog(BuildContext context, ScheduledTaskModel task) {
-    final nameCtrl = TextEditingController(text: task.name);
-    final scheduleCtrl = TextEditingController(text: task.schedule);
-    final commandCtrl = TextEditingController(text: task.command);
+    final nameCtrl = AppTextEditingController(text: task.name);
+    final scheduleCtrl = AppTextEditingController(text: task.schedule);
+    final commandCtrl = AppTextEditingController(text: task.command);
     String actionType = task.actionType;
 
     showDialog(
@@ -119,9 +120,9 @@ class _TasksViewState extends State<TasksView> {
   }
 
   void _showCreateTaskDialog(BuildContext context) {
-    final nameCtrl = TextEditingController();
-    final scheduleCtrl = TextEditingController();
-    final commandCtrl = TextEditingController();
+    final nameCtrl = AppTextEditingController();
+    final scheduleCtrl = AppTextEditingController();
+    final commandCtrl = AppTextEditingController();
     String actionType = 'gateway_check';
 
     showDialog(
@@ -237,10 +238,10 @@ class _TasksViewState extends State<TasksView> {
       controller: controller,
       cursorWidth: 1.5,
       cursorRadius: const Radius.circular(1),
-      style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.6),
+      style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.8),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary),
+        hintStyle: TextStyle(fontSize: 13, color: AgentHubTheme.textTertiary, letterSpacing: 0.8),
         filled: true,
         fillColor: AgentHubTheme.background,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -347,7 +348,7 @@ class _TasksViewState extends State<TasksView> {
               cursorRadius: const Radius.circular(1),
               onChanged: (_) => setState(() {}),
               textAlignVertical: TextAlignVertical.center,
-              style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.6),
+              style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.8),
               decoration: InputDecoration(
                 isDense: true,
                 hintText: '搜索',

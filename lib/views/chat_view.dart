@@ -11,6 +11,7 @@ import '../models/tool_step_model.dart';
 import '../providers/app_state_provider.dart';
 import '../services/attachment_service.dart';
 import '../theme/agenthub_theme.dart';
+import '../widgets/app_text_field.dart';
 import 'components/tool_steps_card.dart';
 
 /// 对话交互视图
@@ -22,7 +23,7 @@ class ChatView extends StatefulWidget {
 }
 
 class _ChatViewState extends State<ChatView> {
-  final TextEditingController _inputController = TextEditingController();
+  final TextEditingController _inputController = AppTextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
   String? _copiedMessageId;
@@ -638,11 +639,11 @@ class _ChatViewState extends State<ChatView> {
                         color: isWechatSession ? AgentHubTheme.textTertiary : AgentHubTheme.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        letterSpacing: 0.6,
+                        letterSpacing: 0.8,
                       ),
                       decoration: InputDecoration(
                         hintText: isWechatSession ? '微信会话暂不支持输入' : (activeSession?.isCodeMode == true ? '输入指令，调用 Claude Code 改代码...' : '输入内容...'),
-                        hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13, letterSpacing: 0.6),
+                        hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13, letterSpacing: 0.8),
                         filled: false,
                         fillColor: Colors.transparent,
                         border: InputBorder.none,

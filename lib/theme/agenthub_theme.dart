@@ -58,6 +58,8 @@ class AgentHubTheme {
           );
 
     return ThemeData(
+      // 桌面端统一采用标准桌面平台行为，消除 macOS 下 Flutter 强制向左负偏移 2px (iOSHorizontalOffset) 导致光标切入文字的问题
+      platform: TargetPlatform.linux,
       brightness: dark ? Brightness.dark : Brightness.light,
       scaffoldBackgroundColor: bg,
       primaryColor: primaryRed,

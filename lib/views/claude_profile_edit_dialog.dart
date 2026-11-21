@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../models/claude_profile.dart';
 import '../services/claude_profile_service.dart';
 import '../theme/agenthub_theme.dart';
+import '../widgets/app_text_field.dart';
 
 /// Claude 供应商 Profile 编辑与新建抽屉弹窗
 class ClaudeProfileEditDialog extends StatefulWidget {
@@ -68,28 +69,28 @@ class _ClaudeProfileEditDialogState extends State<ClaudeProfileEditDialog> {
     super.initState();
     final p = widget.profile;
 
-    _nameCtrl = TextEditingController(text: p?.name ?? '');
-    _remarkCtrl = TextEditingController(text: p?.remark ?? '');
-    _websiteCtrl = TextEditingController(text: p?.websiteUrl ?? '');
-    _apiKeyCtrl = TextEditingController();
-    _apiBaseUrlCtrl = TextEditingController(text: p?.apiBaseUrl ?? '');
-    _fallbackModelCtrl = TextEditingController(text: p?.defaultFallbackModel ?? '');
-    _userAgentCtrl = TextEditingController(text: p?.userAgent ?? '');
+    _nameCtrl = AppTextEditingController(text: p?.name ?? '');
+    _remarkCtrl = AppTextEditingController(text: p?.remark ?? '');
+    _websiteCtrl = AppTextEditingController(text: p?.websiteUrl ?? '');
+    _apiKeyCtrl = AppTextEditingController();
+    _apiBaseUrlCtrl = AppTextEditingController(text: p?.apiBaseUrl ?? '');
+    _fallbackModelCtrl = AppTextEditingController(text: p?.defaultFallbackModel ?? '');
+    _userAgentCtrl = AppTextEditingController(text: p?.userAgent ?? '');
 
-    _sonnetDisplayCtrl = TextEditingController(text: p?.sonnetMapping.displayName ?? '');
-    _sonnetActualCtrl = TextEditingController(text: p?.sonnetMapping.actualModel ?? '');
+    _sonnetDisplayCtrl = AppTextEditingController(text: p?.sonnetMapping.displayName ?? '');
+    _sonnetActualCtrl = AppTextEditingController(text: p?.sonnetMapping.actualModel ?? '');
     _sonnet1M = p?.sonnetMapping.is1M ?? false;
 
-    _opusDisplayCtrl = TextEditingController(text: p?.opusMapping.displayName ?? '');
-    _opusActualCtrl = TextEditingController(text: p?.opusMapping.actualModel ?? '');
+    _opusDisplayCtrl = AppTextEditingController(text: p?.opusMapping.displayName ?? '');
+    _opusActualCtrl = AppTextEditingController(text: p?.opusMapping.actualModel ?? '');
     _opus1M = p?.opusMapping.is1M ?? false;
 
-    _fableDisplayCtrl = TextEditingController(text: p?.fableMapping.displayName ?? '');
-    _fableActualCtrl = TextEditingController(text: p?.fableMapping.actualModel ?? '');
+    _fableDisplayCtrl = AppTextEditingController(text: p?.fableMapping.displayName ?? '');
+    _fableActualCtrl = AppTextEditingController(text: p?.fableMapping.actualModel ?? '');
     _fable1M = p?.fableMapping.is1M ?? false;
 
-    _haikuDisplayCtrl = TextEditingController(text: p?.haikuMapping.displayName ?? '');
-    _haikuActualCtrl = TextEditingController(text: p?.haikuMapping.actualModel ?? '');
+    _haikuDisplayCtrl = AppTextEditingController(text: p?.haikuMapping.displayName ?? '');
+    _haikuActualCtrl = AppTextEditingController(text: p?.haikuMapping.actualModel ?? '');
     _haiku1M = p?.haikuMapping.is1M ?? false;
 
     if (p != null) {
@@ -559,7 +560,7 @@ class _ClaudeProfileEditDialogState extends State<ClaudeProfileEditDialog> {
                       cursorWidth: 1.5,
                       cursorRadius: const Radius.circular(1),
                       onChanged: (_) => setState(() {}),
-                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
+                      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.8),
                       decoration: InputDecoration(
                         hintText: '请输入访问密钥',
                         hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
@@ -759,10 +760,10 @@ class _ClaudeProfileEditDialogState extends State<ClaudeProfileEditDialog> {
       cursorWidth: 1.5,
       cursorRadius: const Radius.circular(1),
       onChanged: (_) => setState(() {}),
-      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
+      style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.8),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13, letterSpacing: 0.6),
+        hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13, letterSpacing: 0.8),
         filled: true,
         fillColor: AgentHubTheme.background,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

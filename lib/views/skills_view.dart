@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/skill_model.dart';
 import '../providers/app_state_provider.dart';
 import '../theme/agenthub_theme.dart';
+import '../widgets/app_text_field.dart';
 
 /// 插件与技能管理视图
 class SkillsView extends StatefulWidget {
@@ -13,7 +14,7 @@ class SkillsView extends StatefulWidget {
 }
 
 class _SkillsViewState extends State<SkillsView> {
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = AppTextEditingController();
 
   @override
   void dispose() {
@@ -22,7 +23,7 @@ class _SkillsViewState extends State<SkillsView> {
   }
 
   void _showInstallDialog(BuildContext context) {
-    final textController = TextEditingController();
+    final textController = AppTextEditingController();
     showDialog(
       context: context,
       builder: (ctx) {
@@ -42,7 +43,7 @@ class _SkillsViewState extends State<SkillsView> {
                   controller: textController,
                   cursorWidth: 1.5,
                   cursorRadius: const Radius.circular(1),
-                  style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
+                  style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.8),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AgentHubTheme.background,
@@ -194,7 +195,7 @@ class _SkillsViewState extends State<SkillsView> {
                 cursorRadius: const Radius.circular(1),
                 onChanged: (_) => setState(() {}),
                 textAlignVertical: TextAlignVertical.center,
-                style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.6),
+                style: TextStyle(fontSize: 13, color: AgentHubTheme.textPrimary, letterSpacing: 0.8),
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: '搜索',

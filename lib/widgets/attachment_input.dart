@@ -6,6 +6,7 @@ import 'package:pasteboard/pasteboard.dart';
 import '../models/attachment.dart';
 import '../services/attachment_service.dart';
 import '../theme/agenthub_theme.dart';
+import 'app_text_field.dart';
 
 /// 包含附件选择、拖拽、粘贴和发送的输入组件
 class AttachmentInput extends StatefulWidget {
@@ -27,7 +28,7 @@ class AttachmentInput extends StatefulWidget {
 }
 
 class _AttachmentInputState extends State<AttachmentInput> {
-  final TextEditingController _textController = TextEditingController();
+  final TextEditingController _textController = AppTextEditingController();
   final List<Attachment> _attachments = [];
   bool _isDragging = false;
 
@@ -155,10 +156,10 @@ class _AttachmentInputState extends State<AttachmentInput> {
                     cursorRadius: const Radius.circular(1),
                     maxLines: 4,
                     minLines: 1,
-                    style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.6),
+                    style: TextStyle(color: AgentHubTheme.textPrimary, fontSize: 13, letterSpacing: 0.8),
                     decoration: InputDecoration(
                       hintText: '输入任务指令，支持粘贴剪贴板图片或拖入文件...',
-                      hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13),
+                      hintStyle: TextStyle(color: AgentHubTheme.textTertiary, fontSize: 13, letterSpacing: 0.8),
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(vertical: 4),
