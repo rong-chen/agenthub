@@ -1,29 +1,26 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'database_service.dart';
 
 /// 安全凭证存储服务
+/// 基于本地 SQLite 数据库存储敏感凭证，彻底杜绝 macOS 系统钥匙串频繁弹窗拦截
 class CredentialService {
   static final CredentialService instance = CredentialService._internal();
   CredentialService._internal();
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage(
-    mOptions: MacOsOptions(
-      usesDataProtectionKeychain: false,
-    ),
-  );
+  final DatabaseService _db = DatabaseService.instance;
 
   /// 存储凭证
   Future<void> save(String key, String value) async {
-    await _storage.write(key: key, value: value);
+    await _db.saveCredential(key, value);
   }
 
   /// 读取凭证
   Future<String?> read(String key) async {
-    return await _storage.read(key: key);
+    return await _db.getCredential(key);
   }
 
   /// 删除凭证
   Future<void> delete(String key) async {
-    await _storage.delete(key: key);
+    await _db.deleteCredential(key);
   }
 
   /// 存储指定 Profile 的授权密钥

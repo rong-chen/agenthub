@@ -285,6 +285,17 @@ class DatabaseService {
       ''');
     } catch (_) {}
 
+    try {
+      // 安全凭据存储表，用于存储本地 API Key 等敏感配置，替代操作系统钥匙串避免弹窗
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS credentials (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      ''');
+    } catch (_) {}
+
     return db;
   }
 
@@ -895,5 +906,45 @@ class DatabaseService {
       orderBy: 'created_at DESC',
     );
     return rows.map((r) => CheckpointModel.fromMap(r)).toList();
+  }
+
+  // ==================== 安全凭证存储 ====================
+
+  /// 保存安全凭证
+  Future<void> saveCredential(String key, String value) async {
+    final db = await database;
+    await db.insert(
+      'credentials',
+      {
+        'key': key,
+        'value': value,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 读取安全凭证
+  Future<String?> getCredential(String key) async {
+    final db = await database;
+    final rows = await db.query(
+      'credentials',
+      columns: ['value'],
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
+  }
+
+  /// 删除安全凭证
+  Future<void> deleteCredential(String key) async {
+    final db = await database;
+    await db.delete(
+      'credentials',
+      where: 'key = ?',
+      whereArgs: [key],
+    );
   }
 }
