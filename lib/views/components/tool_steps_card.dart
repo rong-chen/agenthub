@@ -16,6 +16,7 @@ class ToolStepsCard extends StatefulWidget {
 
 class _ToolStepsCardState extends State<ToolStepsCard> {
   final Set<String> _expandedStepIds = {};
+  final Set<String> _expandedBatchGroupIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -180,13 +181,14 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
     );
   }
 
-  /// 构建批量工具调用步骤卡片
+  /// 构建批量工具调用步骤卡片（支持折叠/展开，默认收起）
   Widget _buildBatchCard(_GroupedStepGroup group) {
     final isDark = AgentHubTheme.isDark;
     final subSteps = group.subSteps;
     final hasError = subSteps.any((s) => s.status == ToolStepStatus.error);
     final allDone = subSteps.every((s) => s.status == ToolStepStatus.success);
     final errorCount = subSteps.where((s) => s.status == ToolStepStatus.error).length;
+    final isExpanded = _expandedBatchGroupIds.contains(group.groupId);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -198,148 +200,181 @@ class _ToolStepsCardState extends State<ToolStepsCard> {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 头部摘要
-            Row(
-              children: [
-                _getToolIcon(group.actionLabel, ''),
-                const SizedBox(width: 8),
-                Text(
-                  '${_getBatchTitle(group.actionLabel)} (${subSteps.length})',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: AgentHubTheme.textPrimary,
-                  ),
+            // 可点击头部摘要行（切换展开/收起）
+            InkWell(
+              onTap: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedBatchGroupIds.remove(group.groupId);
+                  } else {
+                    _expandedBatchGroupIds.add(group.groupId);
+                  }
+                });
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    _getToolIcon(group.actionLabel, ''),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_getBatchTitle(group.actionLabel)} (${subSteps.length})',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AgentHubTheme.textPrimary,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (hasError) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFCF222E)),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$errorCount 失败',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFCF222E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (allDone) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.check, size: 14, color: Color(0xFF2EA44F)),
+                          SizedBox(width: 3),
+                          Text(
+                            '全部完成',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2EA44F),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Text(
+                        '进行中...',
+                        style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary),
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    Icon(
+                      isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: AgentHubTheme.textSecondary,
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                if (hasError) ...[
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFCF222E)),
-                      const SizedBox(width: 3),
-                      Text(
-                        '$errorCount 失败',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFCF222E),
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else if (allDone) ...[
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.check, size: 14, color: Color(0xFF2EA44F)),
-                      SizedBox(width: 3),
-                      Text(
-                        '全部完成',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2EA44F),
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else ...[
-                  Text(
-                    '进行中...',
-                    style: TextStyle(fontSize: 12, color: AgentHubTheme.textSecondary),
-                  ),
-                ],
-              ],
+              ),
             ),
-            const SizedBox(height: 10),
-            // 树形子步骤列表
-            Stack(
-              children: [
-                // 树状连接纵线
-                Positioned(
-                  left: 17,
-                  top: 8,
-                  bottom: 8,
-                  child: Container(
-                    width: 1.5,
-                    color: isDark ? const Color(0xFF333333) : const Color(0xFFDDDDDD),
-                  ),
-                ),
-                Column(
-                  children: subSteps.map((child) {
-                    final isPy = child.target.endsWith('.py');
-                    final isBatchCommand = group.actionLabel.contains('命令') ||
-                        child.actionLabel.contains('命令') ||
-                        child.toolName.toLowerCase().contains('bash');
-                    return InkWell(
-                      onTap: () {
-                        if (isBatchCommand) {
-                          context.read<AppStateProvider>().openCommandInConsole(child);
-                        } else {
-                          final target = child.target.isNotEmpty ? child.target : child.actionLabel;
-                          context.read<AppStateProvider>().openFileInRightPanel(target);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(4),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                        child: Row(
+            // 树形子步骤列表（默认收起，平滑展开动画）
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: isExpanded
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 10),
+                        Stack(
                           children: [
-                            const SizedBox(width: 10),
-                            // 子节点图标或圆点
-                            if (isPy) ...[
-                              Container(
-                                width: 16,
-                                height: 16,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF3572A5).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: const Text(
-                                  'Py',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF3572A5),
-                                  ),
-                                ),
-                              ),
-                            ] else ...[
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF666666) : const Color(0xFF999999),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                child.target.isNotEmpty ? child.target : child.actionLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: AgentHubTheme.textPrimary,
-                                ),
+                            // 树状连接纵线
+                            Positioned(
+                              left: 17,
+                              top: 8,
+                              bottom: 8,
+                              child: Container(
+                                width: 1.5,
+                                color: isDark ? const Color(0xFF333333) : const Color(0xFFDDDDDD),
                               ),
                             ),
-                            _buildStatusDot(child.status),
+                            Column(
+                              children: subSteps.map((child) {
+                                final isPy = child.target.endsWith('.py');
+                                final isBatchCommand = group.actionLabel.contains('命令') ||
+                                    child.actionLabel.contains('命令') ||
+                                    child.toolName.toLowerCase().contains('bash');
+                                return InkWell(
+                                  onTap: () {
+                                    if (isBatchCommand) {
+                                      context.read<AppStateProvider>().openCommandInConsole(child);
+                                    } else {
+                                      final target = child.target.isNotEmpty ? child.target : child.actionLabel;
+                                      context.read<AppStateProvider>().openFileInRightPanel(target);
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                                    child: Row(
+                                      children: [
+                                        const SizedBox(width: 10),
+                                        // 子节点图标或圆点
+                                        if (isPy) ...[
+                                          Container(
+                                            width: 16,
+                                            height: 16,
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF3572A5).withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(3),
+                                            ),
+                                            child: const Text(
+                                              'Py',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF3572A5),
+                                              ),
+                                            ),
+                                          ),
+                                        ] else ...[
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: BoxDecoration(
+                                              color: isDark ? const Color(0xFF666666) : const Color(0xFF999999),
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ],
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            child.target.isNotEmpty ? child.target : child.actionLabel,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              color: AgentHubTheme.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                        _buildStatusDot(child.status),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           ],
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
+                      ],
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -478,6 +513,11 @@ class _GroupedStepGroup {
   final bool isBatch;
   final ToolStepModel? step;
   final List<ToolStepModel> subSteps;
+
+  /// 分组唯一标识（取首个子步骤 ID 或 actionLabel）
+  String get groupId => isBatch
+      ? (subSteps.isNotEmpty ? subSteps.first.id : actionLabel)
+      : (step?.id ?? actionLabel);
 
   _GroupedStepGroup({
     required this.actionLabel,

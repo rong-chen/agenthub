@@ -62,6 +62,22 @@ void main() {
     expect(find.text('./README.md'), findsOneWidget);
     expect(find.text('批量运行命令 (2)'), findsOneWidget);
     expect(find.text('1 失败'), findsOneWidget);
+
+    // 默认折叠收起状态下，子命令不可见
+    expect(find.text('查找配置文件与结构'), findsNothing);
+
+    // 点击批量头部展开
+    await tester.tap(find.text('批量运行命令 (2)'));
+    await tester.pumpAndSettle();
+
+    // 展开后子命令正常展示
+    expect(find.text('查找配置文件与结构'), findsOneWidget);
+    expect(find.text('cat config.json'), findsOneWidget);
+
+    // 再次点击头部收起
+    await tester.tap(find.text('批量运行命令 (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('查找配置文件与结构'), findsNothing);
   });
 
   testWidgets('点击命令项在右侧控制台展示', (tester) async {
