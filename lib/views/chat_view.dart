@@ -91,8 +91,12 @@ class _ChatViewState extends State<ChatView> {
       if (!_scrollController.hasClients) {
         return;
       }
-      final target = _scrollController.position.maxScrollExtent;
+      final pos = _scrollController.position;
+      final target = pos.maxScrollExtent;
       if (target <= 0) {
+        return;
+      }
+      if ((pos.pixels - target).abs() < 2) {
         return;
       }
       if (animate) {
@@ -174,6 +178,7 @@ class _ChatViewState extends State<ChatView> {
             );
           },
           child: ListView.builder(
+            key: PageStorageKey<String>('session_${provider.activeSessionId}'),
             controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             itemCount: messages.length,
