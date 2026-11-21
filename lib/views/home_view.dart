@@ -94,15 +94,35 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                     _buildTopBar(context, provider),
                     Divider(height: 1, thickness: 1, color: AgentHubTheme.divider),
                     Expanded(
-                      child: IndexedStack(
-                        index: provider.currentTabIndex,
-                        children: const [
-                          ChatView(),
-                          ClaudeManagerView(),
-                          TasksView(),
-                          SkillsView(),
-                          SettingsView(),
-                        ],
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.015, 0),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey<int>(provider.currentTabIndex),
+                          child: IndexedStack(
+                            index: provider.currentTabIndex,
+                            children: const [
+                              ChatView(),
+                              ClaudeManagerView(),
+                              TasksView(),
+                              SkillsView(),
+                              SettingsView(),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -151,8 +171,28 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     );
   }
 
-  /// 构建右侧内容区域（支持文件预览、文件修改、服务控制台无缝切换）
+  /// 构建右侧内容区域（支持文件预览、文件修改、服务控制台无缝切换与平滑过渡）
   Widget _buildRightPanel(BuildContext context, AppStateProvider provider) {
+    final String panelKey = provider.rightPanelType == RightPanelType.filePreview
+        ? 'preview_${provider.previewFilePath}'
+        : 'multi_tab_panel';
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: KeyedSubtree(
+        key: ValueKey<String>(panelKey),
+        child: _buildRightPanelContent(context, provider),
+      ),
+    );
+  }
+
+  /// 构建右侧面板具体内容
+  Widget _buildRightPanelContent(BuildContext context, AppStateProvider provider) {
     if (provider.rightPanelType == RightPanelType.filePreview && provider.previewFilePath != null) {
       return FilePreviewPanel(
         filePath: provider.previewFilePath!,
@@ -205,18 +245,29 @@ class _HomeViewState extends State<HomeView> with WindowListener {
               ],
             ),
           ),
-          // 主体展示内容
+          // 主体展示内容（带平滑交叉淡入动画）
           Expanded(
-            child: currentTab == RightPanelType.serviceRunner
-                ? ProjectServicePanel(
-                    sessionId: activeSession?.id ?? 'default',
-                    workDir: activeSession?.workDir ?? Directory.current.path,
-                  )
-                : FileDiffPanel(
-                    checkpoint: ckpt,
-                    session: activeSession,
-                    message: provider.activeDiffMessage,
-                  ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: KeyedSubtree(
+                key: ValueKey<RightPanelType>(currentTab),
+                child: currentTab == RightPanelType.serviceRunner
+                    ? ProjectServicePanel(
+                        sessionId: activeSession?.id ?? 'default',
+                        workDir: activeSession?.workDir ?? Directory.current.path,
+                      )
+                    : FileDiffPanel(
+                        checkpoint: ckpt,
+                        session: activeSession,
+                        message: provider.activeDiffMessage,
+                      ),
+              ),
+            ),
           ),
         ],
       ),
@@ -236,7 +287,9 @@ class _HomeViewState extends State<HomeView> with WindowListener {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(5),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected
@@ -1001,7 +1054,9 @@ class _HomeViewState extends State<HomeView> with WindowListener {
       child: InkWell(
         onTap: () => provider.selectTab(index),
         borderRadius: BorderRadius.circular(8),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected ? AgentHubTheme.primaryRedLight : Colors.transparent,
@@ -1107,7 +1162,9 @@ class _HomeViewState extends State<HomeView> with WindowListener {
                         provider.selectTab(0);
                       },
                       borderRadius: BorderRadius.circular(6),
-                      child: Container(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        curve: Curves.easeOutCubic,
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                         margin: const EdgeInsets.only(bottom: 2),
                         decoration: BoxDecoration(
